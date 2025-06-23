@@ -202,3 +202,4 @@ def generate_datasets():
         pickle.dump(feat, f)
 if __name__ == "__main__":
     generate_datasets()
+    print("hello wolld")
