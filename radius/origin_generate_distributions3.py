@@ -116,7 +116,7 @@ def generate_datasets():
     parser = argparse.ArgumentParser()
     parser.add_argument('--save_dir', type=Path)
     parser.add_argument('--partition', type=str, choices=['train', 'val', 'test'])
-    parser.add_argument('--n_nodes', type=int,default=1000)
+    parser.add_argument('--n_nodes', type=int,default=100)
     parser.add_argument('--n_c', type=int, default=0, help='Number of city clusters in the problem instance')
     parser.add_argument('--mixed', action='store_true')
     parser.add_argument('--std_cluster', type=float, default=0.07, help='Standard deviation for normal distribution of city clusters')
@@ -143,7 +143,7 @@ def generate_datasets():
     #args.save_dir.mkdir(parents=True, exist_ok=True)
     #现在是测试用
     #args.n_instances=1;
-    args.n_instances = args.n_instances or (1000 if args.partition == 'train' else 1000)
+    args.n_instances = args.n_instances or (5000 if args.partition == 'train' else 1000)
 
     ref_path = ref_problems = None
     #args.n_nodes=x.shape[0]

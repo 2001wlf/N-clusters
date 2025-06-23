@@ -80,7 +80,7 @@ while epoch < args.n_epoch:
 
     if epoch % args.eval_interval == 0:
         eval_results = []
-        for n_node in [1000]:
+        for n_node in [100]:
             dataset = pickle.load(open(args.eval_file_path + "/" + str(n_node) + ".pkl", "rb"))
             dataset_rank = []
             dataset_norms = []

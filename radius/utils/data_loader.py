@@ -22,7 +22,7 @@ class DataLoader(object):
                 n_nodes = 41 + 10 * i + index
             else:
                 # n_nodes = 101 + 10 * i + index
-                n_nodes = 1000
+                n_nodes = 100
             loading_datasets.append(n_nodes)
             with open(self.file_path + "/" + str(n_nodes) + ".pkl", "rb") as f:
                 self.dataset.append(pickle.load(f))
