@@ -250,6 +250,5 @@ if __name__ == '__main__':
         init_acc_list.append(init_acc)
         dataset_name_list.append(dataset_name)
         cnt+=1
-    print("test")
     for i in range(len(model_acc_list)):
         print(f"Dataset: {dataset_name_list[i]}, Initial ACC: {init_acc_list[i]:.4f}, Model ACC: {model_acc_list[i]:.4f}")
