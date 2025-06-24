@@ -23,6 +23,39 @@ import os
 import glob
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import cdist
+def kmedoid_from_radii(radii, X, k, max_iter=10):
+    """
+    Initialize k medoids by selecting top-k radii points, then iteratively
+    update by choosing the medoid (min-sum-of-distances) in each cluster.
+    Returns final labels and medoid indices.
+    """
+    # distance matrix
+    dist_mat = cdist(X, X)
+    # initial medoids: indices of top-k radii
+    medoids = np.argsort(radii)[-k:]
+    for _ in range(max_iter):
+        # assign each point to nearest medoid
+        labels = np.argmin(dist_mat[:, medoids], axis=1)
+        new_medoids = []
+        # update medoids for each cluster
+        for ci in range(k):
+            members = np.where(labels == ci)[0]
+            if len(members) == 0:
+                new_medoids.append(medoids[ci])
+            else:
+                subdist = dist_mat[np.ix_(members, members)]
+                # sum of distances for each candidate
+                sums = subdist.sum(axis=1)
+                # pick member with minimal total distance
+                new_medoids.append(members[np.argmin(sums)])
+        new_medoids = np.array(new_medoids)
+        # check for convergence
+        if np.array_equal(new_medoids, medoids):
+            break
+        medoids = new_medoids
+    # final assignment
+    labels = np.argmin(dist_mat[:, medoids], axis=1)
+    return labels, medoids
 def variable_eps_dbscan(X, radii, min_samples=5):
     """
     Variable-epsilon DBSCAN.

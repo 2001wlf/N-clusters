@@ -22,7 +22,7 @@ import os
 import glob
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import cdist
-from code_util import code_for_up,variable_eps_dbscan
+from code_util import code_for_up,variable_eps_dbscan,kmedoid_from_radii
 def coverage_sampling(radii, X, k):
     """
     Uniformly sample k centers based on radii and assign clusters by spatial distance:
@@ -170,6 +170,12 @@ def read_data(true_data,true_label,dataset_name):
         radii = np.loadtxt(pred_files[0])
         # ensure radii is a column vector
         radii=radii/5
+        # initialize centers from radii and assign by nearest medoid
+        pred_label, centers = kmedoid_from_radii(radii, true_data, k,max_iter=0)
+        
+        print(f"\nInitial centers from radii: {centers},\tInit_acc: {init_acc:.4f},\t Model acc: {compute_accuracy(true_label, pred_label):.4f},\t Model k: {len(np.unique(pred_label))}")
+    # proceed with assignments as clusters
+    # now you can continue with your floyd/kmeans-like update process or use assignments directly
        #maximun_acc=0
         #maximun_acc_k=0
         #maximun_acc_i=0;
