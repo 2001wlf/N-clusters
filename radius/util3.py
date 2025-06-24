@@ -979,5 +979,5 @@ def raidusQuery(xys,label):
         avg_radius = dists.sum() / len(dists)
         radii[idx] = avg_radius*10
     #print(xys[:5])
-    print(radii[:5])
-    return radii
+    print(np.unique(radii)[:5])
+    return np.unique(radii)

@@ -23,7 +23,68 @@ import os
 import glob
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import cdist
+def variable_eps_dbscan(X, radii, min_samples=5):
+    """
+    Variable-epsilon DBSCAN.
 
+    参数
+    ----
+    X : ndarray, shape (n_samples, n_features)
+        样本点坐标。
+    radii : ndarray, shape (n_samples,)
+        第 i 个点的 ε_i（可变半径）。
+    min_samples : int
+        构成“核心点”所需的最少邻居数量。
+
+    返回
+    ----
+    labels : ndarray, shape (n_samples,)
+        聚类标签，从 0 开始，噪声标签为 -1。
+    """
+    n = X.shape[0]
+    labels = np.full(n, -1, dtype=int)   # 初始化所有点为噪声
+    visited = np.zeros(n, dtype=bool)    # 标记是否已访问
+    cluster_id = 0
+
+    # 预计算距离矩阵（可用 KD-Tree 或者分块加速）
+    # dist_matrix[i, j] = ||X[i] - X[j]||
+    diff = X[:, None, :] - X[None, :, :]
+    dist_matrix = np.linalg.norm(diff, axis=2)
+
+    for i in range(n):
+        if visited[i]:
+            continue
+        visited[i] = True
+
+        # 找到 i 的邻居：距离 <= radii[i]
+        neighbors = np.where(dist_matrix[i] <= radii[i])[0]
+
+        # 如果邻居太少，则 i 保持噪声
+        if neighbors.size < min_samples:
+            labels[i] = -1
+        else:
+            # 新簇
+            labels[i] = cluster_id
+            # 用一个队列 seeds 扩展
+            seeds = list(neighbors.tolist())
+            while seeds:
+                j = seeds.pop(0)
+                if not visited[j]:
+                    visited[j] = True
+                    # 以 j 为中心再找一次可变邻居
+                    j_neighbors = np.where(dist_matrix[j] <= radii[j])[0]
+                    # 如果 j 是核心点，将新邻居加入扩展队列
+                    if j_neighbors.size >= min_samples:
+                        for nb in j_neighbors:
+                            if not visited[nb]:
+                                seeds.append(int(nb))
+                # 如果 j 还没被分配到任何簇（-1），就把它归到当前簇
+                if labels[j] == -1:
+                    labels[j] = cluster_id
+
+            cluster_id += 1
+
+    return labels
 def make_uniform(start, end, length, np_nums):
     s = np.linspace(start, end, length).reshape(-1,1)
     dis_map = distance.cdist(np_nums.reshape(-1,1), s)

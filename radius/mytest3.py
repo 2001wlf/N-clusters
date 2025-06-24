@@ -22,7 +22,7 @@ import os
 import glob
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import cdist
-from code_util import code_for_up
+from code_util import code_for_up,variable_eps_dbscan
 def coverage_sampling(radii, X, k):
     """
     Uniformly sample k centers based on radii and assign clusters by spatial distance:
@@ -83,7 +83,7 @@ def radius_model(my_node):
     parser.add_argument('--eval_interval', type=int, default=1, help='')
     parser.add_argument('--eval_batch_size', type=int, default=1, help='')
     parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/radius/mydata2/val', help='')
-    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/raidus/5.pt', help='')
+    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/raidus/3.pt', help='')
     args = parser.parse_args()
     edge_cw = None
     n_edges = 20
@@ -169,9 +169,25 @@ def read_data(true_data,true_label,dataset_name):
     if pred_files:
         radii = np.loadtxt(pred_files[0])
         # ensure radii is a column vector
+        radii=radii/5
+       #maximun_acc=0
+        #maximun_acc_k=0
+        #maximun_acc_i=0;
+        #for i in range(1,6):
+            #dbsacn_label= variable_eps_dbscan(true_data, radii, 5)
+            #dbsacn_k=len(np.unique(dbsacn_label))
+            #print(f"DBSCAN clustering accuracy: {compute_accuracy(true_label, dbsacn_label):.4f}, clusters: {dbsacn_k}")
+            #dbsacn_acc= compute_accuracy(true_label, dbsacn_label)
+            #if dbsacn_acc>maximun_acc:
+             #   maximun_acc=dbsacn_acc
+              #  maximun_acc_k=dbsacn_k
+               # maximun_acc_i=i
+        #print(f"Dataset: {dataset_name}, Initial ACC: {init_acc:.4f}, Model ACC: {maximun_acc:.4f},Model K: {maximun_acc_k}, Model I: {maximun_acc_i}")
+        #return init_acc, maximun_acc, dataset_name
         
         maximun_acc,maximun_acc_index = code_for_up(true_data, true_label, k, radii)
-        print("\n最大ACC:", maximun_acc, "\t方法:", maximun_acc_index)     
+        print("\nInit_acc",init_acc,"\t最大ACC:", maximun_acc, "\t方法:", maximun_acc_index)     
+        return init_acc, maximun_acc, dataset_name
         
         #assignments, centers, noise = coverage_sampling(radii, true_data, k)
         #print("Sampled centers (indices):", centers)
@@ -182,7 +198,8 @@ def read_data(true_data,true_label,dataset_name):
         # Compute and print accuracy excluding noise
         #acc_cov = compute_accuracy_filtered(true_label, assignments, noise_label=-1)
         #print(f"Coverage sampling accuracy (excluding noise): {acc_cov:.4f}")
-        return init_acc, maximun_acc, dataset_name
+
+
     else:
         print(f"No pred files found in {pred_dir}")
     # Concatenate all loaded data and labels
@@ -216,7 +233,7 @@ if __name__ == '__main__':
     cnt=1
     # Iterate through all .txt files in the training folder
     for filepath in glob.glob(os.path.join(data_dir, '*.txt')):
-        if cnt>=1:
+        if cnt>=20:
             break
         filename = os.path.basename(filepath)    # 只保留 “xxx.txt”
         filename = os.path.splitext(filename)[0]  # 不带后缀的文件名 “xxx”
