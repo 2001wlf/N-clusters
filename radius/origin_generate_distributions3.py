@@ -6,6 +6,7 @@ from pathlib import Path
 import argparse
 from sklearn.cluster import KMeans
 import warnings
+from sklearn.preprocessing import MinMaxScaler
 from mydata2.generate_dataset import generate_smile
 warnings.filterwarnings("ignore",category=FutureWarning)
 
@@ -70,6 +71,30 @@ def my_generate_problem(xys,k):
     kmeans= KMeans(init='k-means++', n_clusters=k).fit(xys)
     Radius=raidusQuery(xys,kmeans.labels_)
     return xys,Radius
+def generate_subgaussian_tsp(graph_size, lower=-3, upper=3):
+      """
+      Generate data from a truncated normal distribution (sub-Gaussian).
+      """
+      data = np.random.normal(0, 1, size=(graph_size, 2))
+      mask = (data < lower) | (data > upper)
+      while mask.any():
+          new = np.random.normal(0, 1, size=(mask.sum(), 2))
+          data[mask] = new
+          mask = (data < lower) | (data > upper)
+      return MinMaxScaler().fit_transform(data)
+def generate_exponential_tsp(graph_size, scale=1.0):
+    """
+    Generate data from an exponential distribution.
+    """
+    data = np.random.exponential(scale, size=(graph_size, 2))
+    return MinMaxScaler().fit_transform(data)
+
+def generate_student_t_tsp(graph_size, df=3):
+    """
+    Generate data from a Student's t-distribution with df degrees of freedom.
+    """
+    data = np.random.standard_t(df, size=(graph_size, 2))
+    return MinMaxScaler().fit_transform(data)
 def generate_problem(args, init=None):
     if init:
         xys, demands, capacity, pkwargs = init
@@ -88,7 +113,18 @@ def generate_problem(args, init=None):
             xys = generate_gaussian_mixture_tsp(1 + args.n_nodes, num_modes, cdist)
             demands = np.random.randint(args.min_demand, args.max_demand, size=1 + args.n_nodes)
             demands[0] = 0
-
+        elif args.dist == "subg":
+            xys = generate_subgaussian_tsp(1 + args.n_nodes)
+            demands = np.random.randint(args.min_demand, args.max_demand, size=1 + args.n_nodes)
+            demands[0] = 0
+        elif args.dist == "exp":
+            xys = generate_exponential_tsp(1 + args.n_nodes)
+            demands = np.random.randint(args.min_demand, args.max_demand, size=1 + args.n_nodes)
+            demands[0] = 0
+        elif args.dist == "student":
+            xys = generate_student_t_tsp(1 + args.n_nodes)
+            demands = np.random.randint(args.min_demand, args.max_demand, size=1 + args.n_nodes)
+            demands[0] = 0
     #density = densityQuery(xys)
     #fringe = fringeScore(xys)
     #SE = structuralEntorpy(xys)
@@ -136,7 +172,8 @@ def generate_datasets():
     parser.add_argument('--solver', type=str, choices=['LKH', 'HGS'], default='LKH')
     parser.add_argument('--naive_init', action='store_true')
     parser.add_argument('--full_solver_init', action='store_true')
-    parser.add_argument('--dist', type=str, choices=['uniform', 'gm'], default='gm')  # (0, 0) + {3, 5, 7} * {10, 30, 50}
+    #parser.add_argument('--dist', type=str, choices=['uniform', 'gm'], default='uniform')  # (0, 0) + {3, 5, 7} * {10, 30, 50}
+    parser.add_argument('--dist', type=str, choices=['uniform', 'gm', 'subg', 'exp', 'student'], default='uniform')
     args = parser.parse_args()
     args.partition='val'
     args.save_dir="mydata2"
