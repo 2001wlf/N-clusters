@@ -18,28 +18,11 @@ from generate_distributions3 import generate_datasets
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 import numpy as np
-
 import os
 import glob
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import cdist
-def acc(y_true, y_pred):
-    """
-    Calculate clustering accuracy. Require scikit-learn installed
-    # Arguments
-        y: true labels, numpy.array with shape `(n_samples,)`
-        y_pred: predicted labels, numpy.array with shape `(n_samples,)`
-    # Return
-        accuracy, in [0,1]
-    """
-    y_true = y_true.astype(np.int64)
-    assert y_pred.size == y_true.size
-    D = max(np.max(y_pred), np.max(y_true)) + 1
-    w = np.zeros((D, D), dtype=np.int64)
-    for i in range(y_pred.size):
-        w[y_pred[i], y_true[i]] += 1
-    ind = np.array(linear_assignment(np.max(w) - w)).T
-    return sum([w[i, j] for i, j in ind]) * 1.0 / y_pred.size
+from code_util import code_for_up
 def coverage_sampling(radii, X, k):
     """
     Uniformly sample k centers based on radii and assign clusters by spatial distance:
@@ -100,7 +83,7 @@ def radius_model(my_node):
     parser.add_argument('--eval_interval', type=int, default=1, help='')
     parser.add_argument('--eval_batch_size', type=int, default=1, help='')
     parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/radius/mydata2/val', help='')
-    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/raidus_100/3.pt', help='')
+    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/raidus/5.pt', help='')
     args = parser.parse_args()
     edge_cw = None
     n_edges = 20
@@ -183,100 +166,11 @@ def read_data(true_data,true_label,dataset_name):
     pred_dir = os.path.join("cmps", str(n_node))
     # pick the first pred file (e.g., "0_pred.txt")
     pred_files = sorted(glob.glob(os.path.join(pred_dir, "*_pred.txt")))
-    maximun_acc=0
-    maximun_acc_index=[]
     if pred_files:
         radii = np.loadtxt(pred_files[0])
         # ensure radii is a column vector
-        radii = radii.reshape(-1, 1)
-        data_ent = radii
-
-        data=true_data
-        data_entory=radii
-        label=true_label
-
-        # min_gap = find_min_gap(data_ent)
-        data_ent_uniform = make_uniform(np.min(data_ent), np.max(data_ent), 19, data_ent)
-
-        data_ = np.hstack((data,data_entory))
-
         
-        data_ = MinMaxScaler().fit_transform(data_)
-        # data_[:,2] = data_[:,2]*2
-
-        kmeans_2 = KMeans(init='k-means++', n_clusters=k).fit(data_entory)
-        # a = kmeans_2.labels_
-        ACC_2 = round(acc(label, kmeans_2.labels_), 4)
-        note = 'only entroy_list'
-
-        # kmeans_3 = KMeans(init='k-means++', n_clusters=k).fit((data_entory - np.min(data_entory,axis=0))/(np.max(data_entory,axis=0)-np.min(data_entory,axis=0)))
-        kmeans_3 = KMeans(init='k-means++', n_clusters=k).fit(MinMaxScaler().fit_transform(data_entory))
-        ACC_3 = round(acc(label, kmeans_3.labels_), 4)
-        note = 'only normalized entroy_list'
-
-
-        kmeans_4 = KMeans(init='k-means++', n_clusters=k).fit(data_ent)
-        ACC_4 = round(acc(label, kmeans_4.labels_), 4)
-        note = 'only entroy'
-
-        # kmeans_5 = KMeans(init='k-means++', n_clusters=k).fit((data_ent - np.min(data_ent,axis=0))/(np.max(data_ent,axis=0)-np.min(data_ent,axis=0)))
-        kmeans_5 = KMeans(init='k-means++', n_clusters=k).fit(MinMaxScaler().fit_transform(data_ent))
-        ACC_5 = round(acc(label, kmeans_5.labels_), 4)
-        # np.savetxt("rings_ent.txt",data_ent,fmt="%f")
-        note = 'only normalized entroy'
-
-
-        kmeans_6 = KMeans(init='k-means++', n_clusters=k).fit(data_)
-        ACC_6 = round(acc(label, kmeans_6.labels_), 4)
-        note = 'normalized data with entroy_list'
-
-        data_[:, -1] = data_[:, -1] * 2
-
-        kmeans_7 = KMeans(init='k-means++', n_clusters=k).fit(data_)
-        ACC_7 = round(acc(label, kmeans_7.labels_), 4)
-        note = 'normalized data with twice entroy_list'
-        
-        data_ = np.hstack((data, data_ent))
-        
-
-        kmeans_9 = KMeans(init='k-means++', n_clusters=k).fit(MinMaxScaler().fit_transform(data_))
-        ACC_9 = round(acc(label, kmeans_9.labels_), 4)
-    
-        note = 'normalized data with entroy'
-        
-        
-
-        data_ent_ = MinMaxScaler().fit_transform(data_ent) + 1e-15
-        data_ = np.hstack((data, np.log(data_ent_)))
-        
-        data_ = MinMaxScaler().fit_transform(data_)
-        kmeans_11 = KMeans(init='k-means++', n_clusters=k).fit(data_)
-        # kmeans_ = KMEANS().kmeans_plusplus(k,(data_ - np.min(data_, axis=0)) / (np.max(data_, axis=0) - np.min(data_, axis=0)))
-        ACC_11 = round(acc(label, kmeans_11.labels_), 4)
-        
-        note = 'normalized data with log entroy'
-        
-
-        
-
-        data_ = np.hstack((data, data_ent_uniform))
-        # data_ = (data_ - np.min(data_, axis=0)) / (np.max(data_, axis=0) - np.min(data_, axis=0))
-        # data_[np.isnan(data_)] = 0
-        #print("yes")
-        kmeans_12 = KMeans(init='k-means++', n_clusters=k).fit(MinMaxScaler().fit_transform(data_))
-        ACC_12 = round(acc(label, kmeans_12.labels_), 4)
-    
-        note = 'normalized data with uniform entroy'
-        
-        #print("yes")
-        ACC_list = np.array([ACC_2, ACC_3, ACC_4, ACC_5, ACC_6, ACC_7, ACC_9, ACC_11, ACC_12])
-        ACC_max = np.max(ACC_list)
-        ACC_max_index = np.argmax(ACC_list)
-
-        if ACC_max>maximun_acc:
-            maximun_acc = ACC_max
-            maximun_acc_index = ACC_max_index
-
+        maximun_acc,maximun_acc_index = code_for_up(true_data, true_label, k, radii)
         print("\n最大ACC:", maximun_acc, "\t方法:", maximun_acc_index)     
         
         #assignments, centers, noise = coverage_sampling(radii, true_data, k)

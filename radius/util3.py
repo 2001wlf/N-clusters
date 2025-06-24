@@ -977,7 +977,7 @@ def raidusQuery(xys,label):
         center = cluster_points.mean(axis=0)
         dists = np.linalg.norm(cluster_points - center, axis=1)
         avg_radius = dists.sum() / len(dists)
-        radii[idx] = avg_radius
+        radii[idx] = avg_radius*10
     #print(xys[:5])
-    #print(radii[:5])
+    print(radii[:5])
     return radii

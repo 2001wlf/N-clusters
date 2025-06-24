@@ -138,7 +138,7 @@ def generate_datasets():
     parser.add_argument('--full_solver_init', action='store_true')
     parser.add_argument('--dist', type=str, choices=['uniform', 'gm'], default='gm')  # (0, 0) + {3, 5, 7} * {10, 30, 50}
     args = parser.parse_args()
-    args.partition='val'
+    args.partition='train'
     args.save_dir="mydata2"
     #args.save_dir.mkdir(parents=True, exist_ok=True)
     #现在是测试用
