@@ -21,7 +21,7 @@ parser.add_argument('--n_gcn_layers', type=int, default=30, help='')
 parser.add_argument('--n_mlp_layers', type=int, default=3, help='')
 parser.add_argument('--learning_rate', type=float, default=0.0001, help='')
 parser.add_argument('--save_interval', type=int, default=1, help='')
-parser.add_argument('--save_dir', type=str, default="saved/raidus/", help='')
+parser.add_argument('--save_dir', type=str, default="saved/radius_centralpoint/", help='')
 parser.add_argument('--load_pt', type=str, default="", help='')
 args = parser.parse_args()
 

@@ -972,12 +972,18 @@ def raidusQuery(xys,label):
     label = np.asarray(label)
     radii = np.zeros(len(xys))
     for l in np.unique(label):
+        # indices of points in this cluster
         idx = np.where(label == l)[0]
         cluster_points = xys[idx]
+        # compute cluster centroid
         center = cluster_points.mean(axis=0)
+        # distances from center to each point
         dists = np.linalg.norm(cluster_points - center, axis=1)
-        avg_radius = dists.sum() / len(dists)
-        radii[idx] = avg_radius*10
-    #print(xys[:5])
-    print(np.unique(radii)[:5])
-    return np.unique(radii)
+        # max distance in cluster
+        max_dist = dists.max()
+        # find the point closest to the centroid to serve as center
+        center_local_idx = np.argmin(dists)
+        # map back to original index
+        center_idx = idx[center_local_idx]
+        radii[center_idx] = max_dist
+    return radii
