@@ -83,7 +83,7 @@ def radius_model(my_node):
     parser.add_argument('--eval_interval', type=int, default=1, help='')
     parser.add_argument('--eval_batch_size', type=int, default=1, help='')
     parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/radius/mydata2/val', help='')
-    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/radius_centralpoint/3.pt', help='')
+    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/radius_centralpoint/5.pt', help='')
     args = parser.parse_args()
     edge_cw = None
     n_edges = 20
@@ -169,9 +169,9 @@ def read_data(true_data,true_label,dataset_name):
     if pred_files:
         radii = np.loadtxt(pred_files[0])
         # ensure radii is a column vector
-        radii=radii/5
+        radii=radii*10
         # initialize centers from radii and assign by nearest medoid
-        pred_label, centers = kmedoid_from_radii(radii, true_data, k,max_iter=0)
+        pred_label, centers = kmedoid_from_radii(radii, true_data, k,max_iter=10)
         
         print(f"\nInitial centers from radii: {centers},\tInit_acc: {init_acc:.4f},\t Model acc: {compute_accuracy(true_label, pred_label):.4f},\t Model k: {len(np.unique(pred_label))}")
     # proceed with assignments as clusters

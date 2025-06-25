@@ -102,7 +102,7 @@ while epoch < args.n_epoch:
 
                     y_edges = y_edges.detach().cpu().numpy()
                     label = label.cpu().numpy()
-        print("eval: n = 1000 | {}".format(loss_nodes))     
+        print("eval: n = 100 | {}".format(loss_nodes))     
         # print ("n=100 %.3f %d, n=200 %.3f %d, n=500 %.3f %d" % (tuple(eval_results)))
 
     epoch += 1

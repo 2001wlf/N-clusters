@@ -77,10 +77,12 @@ def generate_subgaussian_tsp(graph_size, lower=-3, upper=3):
       """
       data = np.random.normal(0, 1, size=(graph_size, 2))
       mask = (data < lower) | (data > upper)
-      while mask.any():
-          new = np.random.normal(0, 1, size=(mask.sum(), 2))
-          data[mask] = new
+      row_mask = mask.any(axis=1)
+      while row_mask.any():
+          new = np.random.normal(0, 1, size=(row_mask.sum(), 2))
+          data[row_mask] = new
           mask = (data < lower) | (data > upper)
+          row_mask = mask.any(axis=1)
       return MinMaxScaler().fit_transform(data)
 def generate_exponential_tsp(graph_size, scale=1.0):
     """
@@ -173,7 +175,7 @@ def generate_datasets():
     parser.add_argument('--naive_init', action='store_true')
     parser.add_argument('--full_solver_init', action='store_true')
     #parser.add_argument('--dist', type=str, choices=['uniform', 'gm'], default='uniform')  # (0, 0) + {3, 5, 7} * {10, 30, 50}
-    parser.add_argument('--dist', type=str, choices=['uniform', 'gm', 'subg', 'exp', 'student'], default='uniform')
+    parser.add_argument('--dist', type=str, choices=['uniform', 'gm', 'subg', 'exp', 'student'], default='subg')
     args = parser.parse_args()
     args.partition='val'
     args.save_dir="mydata2"
