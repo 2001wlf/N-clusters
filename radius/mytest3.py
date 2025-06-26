@@ -13,6 +13,7 @@ from sklearn.datasets import load_iris, load_wine, load_breast_cancer
 from torch.autograd import Variable
 from sklearn.cluster import KMeans
 from util3 import raidusQuery
+import matplotlib.pyplot as plt
 import pickle
 from generate_distributions3 import generate_datasets
 import pandas as pd
@@ -131,6 +132,22 @@ def make_uniform(start, end, length, np_nums):
     assignment = np.argmin(dis_map,axis=1)
     new_nums = s[assignment]
     return new_nums
+def draw_picture(centers,true_data,pred_label, dataset_name):
+
+    plt.figure(figsize=(8, 6))
+    unique_labels = np.unique(pred_label)
+    N=true_data.shape[0]
+    for label in unique_labels:
+        indices = np.where(pred_label == label)[0]
+        plt.scatter(true_data[indices, 0], true_data[indices, 1], label=f'Cluster {label}')
+    plt.scatter(true_data[centers, 0], true_data[centers, 1], color='black', marker='x', s=100, label='Centers')
+    plt.title(f'Clustering Results for {dataset_name}')
+    plt.xlabel('Feature 1')
+    plt.ylabel('Feature 2')
+    plt.legend()
+    plt.grid()
+    plt.savefig(f'cmps/{N}/{dataset_name}_clustering_results.png')
+    #plt.show()
 def read_data(true_data,true_label,dataset_name):
     """
     Load dataset from the local mydata2/train folder under the script's directory.
@@ -171,8 +188,9 @@ def read_data(true_data,true_label,dataset_name):
         # ensure radii is a column vector
         radii=radii*10
         # initialize centers from radii and assign by nearest medoid
-        pred_label, centers = kmedoid_from_radii(radii, true_data, k,max_iter=10)
-        
+        pred_label, centers = kmedoid_from_radii(radii, true_data, k,max_iter=0)
+        #根据预测的centers画出数据集并且标注中心点的位置
+        draw_picture(centers,true_data,pred_label,dataset_name)
         print(f"\nInitial centers from radii: {centers},\tInit_acc: {init_acc:.4f},\t Model acc: {compute_accuracy(true_label, pred_label):.4f},\t Model k: {len(np.unique(pred_label))}")
     # proceed with assignments as clusters
     # now you can continue with your floyd/kmeans-like update process or use assignments directly
