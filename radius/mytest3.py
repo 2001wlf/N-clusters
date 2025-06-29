@@ -84,7 +84,7 @@ def radius_model(my_node):
     parser.add_argument('--eval_interval', type=int, default=1, help='')
     parser.add_argument('--eval_batch_size', type=int, default=1, help='')
     parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/radius/mydata2/val', help='')
-    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/radius_centralpoint/5.pt', help='')
+    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/radius_centralpoint_exp/3.pt', help='')
     args = parser.parse_args()
     edge_cw = None
     n_edges = 20
@@ -165,7 +165,10 @@ def read_data(true_data,true_label,dataset_name):
     k=len(np.unique(true_label))
     #k=10
     kmeans=KMeans(n_clusters=k, random_state=0).fit(true_data)
-    raidusQuery(true_data,kmeans.labels_)
+    radii=raidusQuery(true_data,kmeans.labels_)
+    topk_indices = np.argsort(radii)[-k:]  # 从小到大排，取最后k个索引
+    topk_values = radii[topk_indices]
+    print(f"origin topk_radii: {topk_values}")
     # Compute and print clustering accuracy
     init_acc = compute_accuracy(true_label, kmeans.labels_)
     print(f"Clustering accuracy: {init_acc:.4f}")
@@ -185,6 +188,9 @@ def read_data(true_data,true_label,dataset_name):
     pred_files = sorted(glob.glob(os.path.join(pred_dir, "*_pred.txt")))
     if pred_files:
         radii = np.loadtxt(pred_files[0])
+        topk_indices = np.argsort(radii)[-k:]  # 从小到大排，取最后k个索引
+        topk_values = radii[topk_indices]
+        print(f"model topk_radii: {topk_values}")
         # ensure radii is a column vector
         radii=radii*10
         # initialize centers from radii and assign by nearest medoid
