@@ -23,7 +23,7 @@ import os
 import glob
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import cdist
-from code_util import code_for_up,variable_eps_dbscan,kmedoid_from_radii
+from code_util import code_for_up,variable_eps_dbscan,kmedoid_from_radii,eval_topk_vs_kmeans
 def coverage_sampling(radii, X, k):
     """
     Uniformly sample k centers based on radii and assign clusters by spatial distance:
@@ -84,7 +84,7 @@ def radius_model(my_node):
     parser.add_argument('--eval_interval', type=int, default=1, help='')
     parser.add_argument('--eval_batch_size', type=int, default=1, help='')
     parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/radius/mydata2/val', help='')
-    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/radius_centralpoint_exp/3.pt', help='')
+    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/radius_centralpoint_gm/5.pt', help='')
     args = parser.parse_args()
     edge_cw = None
     n_edges = 20
@@ -148,30 +148,45 @@ def draw_picture(centers,true_data,pred_label, dataset_name):
     plt.grid()
     plt.savefig(f'cmps/{N}/{dataset_name}_clustering_results.png')
     #plt.show()
+origin_radius_list=[]
+model_radius_list=[]
+model_acc_simple_list = []   # 上面那次（radii→kmedoid，max_iter=0）的ACC
+model_k_list = []            # 上面那次得到的簇数
 def read_data(true_data,true_label,dataset_name):
     """
     Load dataset from the local mydata2/train folder under the script's directory.
     Assumes each .txt file is whitespace-delimited, with the last column as the label.
     """
     #wine "
-    print(f"dataset: {dataset_name}")
+    #print(f"dataset: {dataset_name}")
     true_data = true_data[:,:2]
     scaler = MinMaxScaler(feature_range=(0, 1))
     true_data = scaler.fit_transform(true_data)
     generate_datasets(true_data, true_label)
     #true_label = wine.target
 
-
-    k=len(np.unique(true_label))
-    #k=10
-    kmeans=KMeans(n_clusters=k, random_state=0).fit(true_data)
-    radii=raidusQuery(true_data,kmeans.labels_)
-    topk_indices = np.argsort(radii)[-k:]  # 从小到大排，取最后k个索引
-    topk_values = radii[topk_indices]
-    print(f"origin topk_radii: {topk_values}")
-    # Compute and print clustering accuracy
+    k = len(np.unique(true_label))
+    kmeans = KMeans(n_clusters=k, random_state=0).fit(true_data)
+    #r_kmeans = raidusQuery(true_data, kmeans.labels_)  # 全体样本的参考半径（已在 [0,1]^2 空间）
+    r_point = raidusQuery(true_data, kmeans.labels_)  # 长度 N
+    r_kmeans_k = [float(np.max(r_point[kmeans.labels_ == j])) if np.any(kmeans.labels_==j) else 0.0 for j in range(k)]
+    r_kmeans_k = sorted(r_kmeans_k, reverse=True)
+    print(f"{dataset_name} {r_kmeans_k}")
+    origin_radius_list.append(r_kmeans_k)
+    #print(f"{dataset_name} {r_kmeans.tolist()}")
+    # 保存用于后续评估（此处不再打印ACC，避免打断你的两行输出）
     init_acc = compute_accuracy(true_label, kmeans.labels_)
-    print(f"Clustering accuracy: {init_acc:.4f}")
+    
+    #k=len(np.unique(true_label))
+    #k=10
+    #kmeans=KMeans(n_clusters=k, random_state=0).fit(true_data)
+    #radii=raidusQuery(true_data,kmeans.labels_)
+    #topk_indices = np.argsort(radii)[-k:]  # 从小到大排，取最后k个索引
+    #topk_values = radii[topk_indices]
+    #print(f"origin topk_radii: {topk_values}")
+    # Compute and print clustering accuracy
+    #init_acc = compute_accuracy(true_label, kmeans.labels_)
+    #print(f"Clustering accuracy: {init_acc:.4f}")
 
     n_node=len(true_data)
     radius_model(n_node)
@@ -188,16 +203,31 @@ def read_data(true_data,true_label,dataset_name):
     pred_files = sorted(glob.glob(os.path.join(pred_dir, "*_pred.txt")))
     if pred_files:
         radii = np.loadtxt(pred_files[0])
+        radii=radii*10
         topk_indices = np.argsort(radii)[-k:]  # 从小到大排，取最后k个索引
         topk_values = radii[topk_indices]
-        print(f"model topk_radii: {topk_values}")
+        
+        topk_values_tosee = np.sort(radii)[-k:][::-1]  # 降序
+        print(topk_values_tosee.tolist())
+        model_radius_list.append(topk_values_tosee.tolist())
+        
+        #print(f"model topk_radii: {topk_values}")
+        #print(topk_values.tolist())
+        
         # ensure radii is a column vector
-        radii=radii*10
+        centers_idx, ref_c, hit_ratio, assign_acc = eval_topk_vs_kmeans(true_data, radii, k=k, match_eps=0.05)
+        #print("Top-k 命中参考中心比例:", hit_ratio)
+        #print("用 Top-k 做最近中心分配 vs KMeans 标签的一致性 ACC:", assign_acc)
         # initialize centers from radii and assign by nearest medoid
         pred_label, centers = kmedoid_from_radii(radii, true_data, k,max_iter=0)
         #根据预测的centers画出数据集并且标注中心点的位置
-        draw_picture(centers,true_data,pred_label,dataset_name)
+        #draw_picture(centers,true_data,pred_label,dataset_name)
+        model_acc_simple = compute_accuracy(true_label, pred_label)
+        model_k_val = int(len(np.unique(pred_label)))
+        model_acc_simple_list.append(model_acc_simple)
+        model_k_list.append(model_k_val)
         print(f"\nInitial centers from radii: {centers},\tInit_acc: {init_acc:.4f},\t Model acc: {compute_accuracy(true_label, pred_label):.4f},\t Model k: {len(np.unique(pred_label))}")
+    
     # proceed with assignments as clusters
     # now you can continue with your floyd/kmeans-like update process or use assignments directly
        #maximun_acc=0
@@ -216,7 +246,7 @@ def read_data(true_data,true_label,dataset_name):
         #return init_acc, maximun_acc, dataset_name
         
         maximun_acc,maximun_acc_index = code_for_up(true_data, true_label, k, radii)
-        print("\nInit_acc",init_acc,"\t最大ACC:", maximun_acc, "\t方法:", maximun_acc_index)     
+        #print("\nInit_acc",init_acc,"\t最大ACC:", maximun_acc, "\t方法:", maximun_acc_index)     
         return init_acc, maximun_acc, dataset_name
         
         #assignments, centers, noise = coverage_sampling(radii, true_data, k)
@@ -232,6 +262,8 @@ def read_data(true_data,true_label,dataset_name):
 
     else:
         print(f"No pred files found in {pred_dir}")
+        model_acc_simple_list.append(float('nan'))  # 占位，便于 .4f 打印
+        model_k_list.append(0)
     # Concatenate all loaded data and labels
 if __name__ == '__main__':
     model_acc_list = []
@@ -280,5 +312,23 @@ if __name__ == '__main__':
         init_acc_list.append(init_acc)
         dataset_name_list.append(dataset_name)
         cnt+=1
+    def fmt_list(lst, ndigits=4):
+        return "[" + ", ".join(f"{float(x):.{ndigits}f}" for x in lst) + "]"
+
     for i in range(len(model_acc_list)):
-        print(f"Dataset: {dataset_name_list[i]}, Initial ACC: {init_acc_list[i]:.4f}, Model ACC: {model_acc_list[i]:.4f}")
+        print(
+            f"Dataset: {dataset_name_list[i]}, "
+            f"Initial ACC: {init_acc_list[i]:.4f}, "
+            f"model acc: {model_acc_simple_list[i]:.4f}, "  # 这是‘上面的’（radii→kmedoid, 不搜索）的ACC
+            f"coding tree ACC: {model_acc_list[i]:.4f}, "   # 这是 code_for_up 搜出来的“最大ACC”
+            f"model k: {model_k_list[i]}"
+        )
+    # 可选的半径“汇总打印”（如果你只想要 read_data 里那两行，就把下面这段删掉）
+    for i in range(len(dataset_name_list)):
+        # 第1行：KMeans 的 k 个半径
+        print(f"{dataset_name_list[i]} {fmt_list(origin_radius_list[i])}")
+        # 第2行：模型预测 top-k 半径（如果没预测，就打印 []）
+        if i < len(model_radius_list):
+            print(fmt_list(model_radius_list[i]))
+        else:
+            print("[]")

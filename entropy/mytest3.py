@@ -56,3 +56,7 @@ def entropy_model(my_node):
                 np.savetxt("cmps/{}/{}_pred.txt".format(n_node,eval_batch),list(y_nodes[0].flatten().cpu()),fmt='%.4f')
     print("eval: n = 100 | {}".format(loss_nodes))
 #entropy_model(300)
+#entropy_model(300)#entropy_model(300)#entropy_model(300)
+#entropy_model(300)
+#entropy_model(300)
+#entropy_model(300)

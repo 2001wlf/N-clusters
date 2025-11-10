@@ -1,28 +1,61 @@
-import os
-import argparse
+
 import numpy as np
-from utils.data_loader import DataLoader
-import glob
-from tqdm import trange
 from scipy.optimize import linear_sum_assignment as linear_assignment
-from net.sgcn_model import SparseGCNModel
 from scipy.spatial import distance
-from sklearn.utils.class_weight import compute_class_weight
-import torch
-from sklearn.datasets import load_iris, load_wine, load_breast_cancer
-from torch.autograd import Variable
 from sklearn.cluster import KMeans
-from util3 import raidusQuery
-import pickle
-from generate_distributions3 import generate_datasets
-import pandas as pd
 from scipy.optimize import linear_sum_assignment
 import numpy as np
-
-import os
-import glob
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import cdist
+
+
+import numpy as np
+from sklearn.cluster import KMeans
+from scipy.spatial.distance import cdist
+from scipy.optimize import linear_sum_assignment
+
+def eval_topk_vs_kmeans(X, pred_scores, k, match_eps=0.05):
+    """
+    X: (N,2) 已缩放到[0,1]
+    pred_scores: (N,) 模型半径得分（未归一化也可）
+    k: 期望中心数
+    match_eps: 判定“命中参考中心”的阈值(欧氏距离)
+
+    返回：
+      centers_idx: 你取的Top-k索引
+      kmeans_centers: 参考中心坐标 (k,2)
+      hit_ratio: Top-k中有多少能和参考中心一一匹配（<=eps）
+      assign_acc: 用Top-k做“最近中心分配”的聚类ACC（和KMeans标签比）
+    """
+    # 1) 参考：KMeans
+    km = KMeans(n_clusters=k, n_init=10, random_state=0).fit(X)
+    ref_centers = km.cluster_centers_
+    ref_labels = km.labels_
+
+    # 2) 你的做法：Top-k 作为中心
+    centers_idx = np.argsort(pred_scores)[-k:]
+    centers = X[centers_idx]
+
+    # 3) 匹配命中率（中心对中心）
+    cost = cdist(centers, ref_centers)      # (k,k)
+    r, c = linear_sum_assignment(cost)      # 最小总距离匹配
+    hits = (cost[r, c] <= match_eps).sum()
+    hit_ratio = hits / k
+
+    # 4) 用Top-k中心做一次“最近中心分配”，对比KMeans标签的一致性
+    dist_to_centers = cdist(X, centers)
+    pred_labels = np.argmin(dist_to_centers, axis=1)
+
+    # 为了公平，用匈牙利把pred_labels映射到ref_labels的标签空间
+    D = max(pred_labels.max(), ref_labels.max()) + 1
+    w = np.zeros((D, D), dtype=np.int64)
+    for i in range(pred_labels.size):
+        w[pred_labels[i], ref_labels[i]] += 1
+    rr, cc = linear_sum_assignment(w.max() - w)
+    assign_acc = w[rr, cc].sum() / pred_labels.size
+
+    return centers_idx, ref_centers, float(hit_ratio), float(assign_acc)
+
 def kmedoid_from_radii(radii, X, k, max_iter=10):
     """
     Initialize k medoids by selecting top-k radii points, then iteratively
