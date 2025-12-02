@@ -1,4 +1,6 @@
 from util3 import densityQuery,fringeScore,structuralEntorpy,raidusQuery,multiprocess,compute_cluster_size_density_radius
+from util3 import radius_zone_feature
+from MLSP import MLSP_cluster
 import pickle
 import numpy as np
 from time import time
@@ -63,16 +65,6 @@ def generate_gaussian_mixture_tsp(graph_size, num_modes=0, cdist=0):
     else:
         return np.array(gaussian_mixture(graph_size=graph_size, num_modes=num_modes, cdist=cdist))
 
-def my_generate_problem(xys,k):
-    #density = densityQuery(xys)
-    #fringe = fringeScore(xys)
-    #SE = structuralEntorpy(xys)
-    #SE = np.multiply(SE, 10)
-    kmeans= KMeans(init='k-means++', n_clusters=k).fit(xys)
-    feats=compute_cluster_size_density_radius(xys,kmeans.labels_,k)
-    xys=feats[:,:2]
-    Radius=feats[:,2]
-    return xys,Radius
 def generate_subgaussian_tsp(graph_size, lower=-3, upper=3):
       """
       Generate data from a truncated normal distribution (sub-Gaussian).
@@ -137,14 +129,14 @@ def generate_problem(args, init=None):
     fringe=[]
     SE=[]
     kmeans= KMeans(init='k-means++', n_clusters=args.n_clusters).fit(xys)
-    #Radius=raidusQuery(xys,kmeans.labels_)
-    feats=compute_cluster_size_density_radius(xys,kmeans.labels_,args.n_clusters)
-    xys=feats[:,:2]
-    Radius=feats[:,2]
-    return xys, density, fringe, SE,Radius
+    #centers,labels,cost=MLSP_cluster(xys,args.n_clusters)
+    #Zone=radius_zone_feature(xys,labels,args.n_clusters)
+    Zone=radius_zone_feature(xys,kmeans.labels_,args.n_clusters)
+    return xys, density, fringe, SE,Zone
 
 def generate_i(gen_args):
     i, seed, args, init = gen_args
+    #print("Generating problem {}".format(i))
     np.random.seed(seed)
     start_time = time()
     # print(f'Generating problem {i}...')
@@ -152,7 +144,7 @@ def generate_i(gen_args):
     p, q, f, s,r = generate_problem(args, init)
 
     total_time = time() - start_time
-    # print(f'Problem {i} took {total_time:.4f} seconds')
+    print(f'Problem {i} took {total_time:.4f} seconds')
     return p, q, f, s,r
 
 def generate_datasets():
@@ -180,11 +172,10 @@ def generate_datasets():
     parser.add_argument('--naive_init', action='store_true')
     parser.add_argument('--full_solver_init', action='store_true')
     #parser.add_argument('--dist', type=str, choices=['uniform', 'gm'], default='uniform')  # (0, 0) + {3, 5, 7} * {10, 30, 50}
-    parser.add_argument('--dist', type=str, choices=['uniform', 'gm', 'subg', 'exp', 'student'], default='gm')
+    parser.add_argument('--dist', type=str, choices=['uniform', 'gm', 'subg', 'exp', 'student'], default='uniform')
     args = parser.parse_args()
-    m_nodes=args.n_nodes
-    #args.partition='train'
-    args.partition='val'
+    args.partition='train'
+    #args.partition='val'
     
     
     
@@ -197,35 +188,46 @@ def generate_datasets():
     ref_path = ref_problems = None
     #args.n_nodes=x.shape[0]
     
-    args.n_nodes=args.n_clusters
     
     
     save_path = "{}/{}/{}.pkl".format(args.save_dir,args.partition,args.n_nodes)
     n_nodes=args.n_nodes
-    args.n_nodes=m_nodes;
-    #n_nodes = args.n_nodes + 1
+    n_nodes = args.n_nodes + 1
     n_neighbours = 20
     
     n_samples = args.n_instances
     
     # print(f'Generating to {save_path}', flush=True)
     # print(f'Generating {args.n_instances} {args.ptype} instances from {"uniform distribution" if args.n_c == 0 else f"mixed distribution with {args.n_c} city clusters" if args.mixed else f"clustered distribution with {args.n_c} city_clusters"}, each with {args.n_clusters} radial sections to run LKH subsolver on', flush=True)
-    n_nodes=m_nodes;
-    results = multiprocess(generate_i, list(zip(
+    """results = multiprocess(generate_i, list(zip(
         range(0, args.n_instances),
         np.random.randint(np.iinfo(np.int32).max, size=args.n_instances),
         [args] * args.n_instances,
         [None] * args.n_instances,
-    )), cpus=args.n_process or (args.n_cpus - 1) // args.n_clusters + 1)
+    )), cpus=args.n_process or (args.n_cpus - 1) // args.n_clusters + 1)"""
+    
+    # 构造和之前 multiprocess 一模一样的参数列表
+    gen_args_list = list(zip(
+        range(0, args.n_instances),
+        np.random.randint(np.iinfo(np.int32).max, size=args.n_instances),
+        [args] * args.n_instances,
+        [None] * args.n_instances,
+    ))
+
+    # 用普通循环依次调用 generate_i，结果格式与之前完全相同
+    results = []
+    for gen_args in gen_args_list:
+        res = generate_i(gen_args)   # generate_i(gen_args) 里会自己解包 (i, seed, args, init)
+        results.append(res)
+    
     #读取数据集
     #笑脸
     #print(x.shape)
     #k=len(np.unique(label))
     #x,Radius = my_generate_problem(x,k)
-    x,q,frige,s,Radius = zip(*results)
+    x,q,frige,s,Zone = zip(*results)
     x = np.array(x)
     print(x.shape)
-    n_nodes=args.n_clusters
     n_neighbours = min(n_neighbours, n_nodes - 1)
     
     dist = x.reshape(n_samples, n_nodes, 1, 2) - x.reshape(n_samples, 1, n_nodes, 2)
@@ -249,12 +251,12 @@ def generate_datasets():
     print(edge_feat.shape);
     print(edge_index.shape)
     print(inverse_edge_index.shape);
-    print(np.array(Radius).reshape(-1,n_nodes,1).shape)
+    print(np.array(Zone).reshape(-1,n_nodes,1).shape)
     feat = {"node_feat": x, # n_samples x n_nodes x 2
             "edge_feat":edge_feat, # n_samples x n_nodes x n_neighbours
             "edge_index":edge_index, # n_samples x n_nodes x n_neighbours
             "inverse_edge_index":inverse_edge_index, # n_samples x n_nodes x n_neighbours
-            "density_feat":np.array(Radius).reshape(-1,n_nodes,1) # n_samples x n_nodes x 1
+            "density_feat":np.array(Zone).reshape(-1,n_nodes,1) # n_samples x n_nodes x 1
             }
     with open(save_path, "wb") as f:
         pickle.dump(feat, f)

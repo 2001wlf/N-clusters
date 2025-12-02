@@ -15,10 +15,10 @@ parser.add_argument('--file_path', default='mydata2/train', help='')
 parser.add_argument('--eval_file_path', default='mydata2/val', help='')
 
 #训练轮数（总的轮数）
-parser.add_argument('--n_epoch', type=int, default=35, help='')
+parser.add_argument('--n_epoch', type=int, default=6, help='')
 #加载预训练模型
-parser.add_argument('--load_pt', type=str, default="saved/radius_centralpoint_gm/30.pt", help='')
-
+parser.add_argument('--load_pt', type=str, default="saved/radius_centralpoint_uniform/5.pt", help='')
+#parser.add_argument('--load_pt', type=str, default="", help='')
 parser.add_argument('--eval_interval', type=int, default=1, help='')
 parser.add_argument('--eval_batch_size', type=int, default=20, help='')
 parser.add_argument('--n_hidden', type=int, default=128, help='')
@@ -26,14 +26,15 @@ parser.add_argument('--n_gcn_layers', type=int, default=30, help='')
 parser.add_argument('--n_mlp_layers', type=int, default=3, help='')
 parser.add_argument('--learning_rate', type=float, default=0.0001, help='')
 parser.add_argument('--save_interval', type=int, default=1, help='')
-parser.add_argument('--save_dir', type=str, default="saved/radius_centralpoint_gm/", help='')
+parser.add_argument('--model_dist', type=str, choices=['uniform', 'gm', 'subg', 'exp', 'student'], default='uniform')
+parser.add_argument('--save_dir', type=str, default="saved/radius_centralpoint_uniform/", help='')
+#换模型记得修改dataloder
 args = parser.parse_args()
 
 n_edges = 20
 net = SparseGCNModel()
 net.cuda()
-dataLoader = DataLoader(file_path=args.file_path,
-                        batch_size=None)
+dataLoader = DataLoader(file_path=args.file_path,model_dist=args.model_dist,batch_size=None)
 
 edge_cw = None
 optimizer = torch.optim.Adam(net.parameters(), lr=args.learning_rate)
@@ -85,7 +86,7 @@ while epoch < args.n_epoch:
     if epoch % args.eval_interval == 0:
         eval_results = []
         for n_node in [100]:
-            dataset = pickle.load(open(args.eval_file_path + "/" + str(n_node) + ".pkl", "rb"))
+            dataset = pickle.load(open(args.eval_file_path + "/" +str(args.model_dist) + '_' + str(n_node) + ".pkl", "rb"))
             dataset_rank = []
             dataset_norms = []
             for eval_batch in trange(1000 // args.eval_batch_size):

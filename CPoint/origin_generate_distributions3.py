@@ -191,7 +191,7 @@ def generate_datasets():
 
     ref_path = ref_problems = None
     #args.n_nodes=x.shape[0]
-    save_path = "{}/{}/{}.pkl".format(args.save_dir,args.partition,args.n_nodes)
+    save_path = "{}/{}/{}_{}.pkl".format(args.save_dir,args.partition,args.dist,args.n_nodes)
     #n_nodes=args.n_nodes
     n_nodes = args.n_nodes + 1
     n_neighbours = 20

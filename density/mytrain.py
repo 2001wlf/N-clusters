@@ -13,7 +13,9 @@ import pickle
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--file_path', default='mydata/train', help='')
 parser.add_argument('--eval_file_path', default='mydata/val', help='')
-parser.add_argument('--n_epoch', type=int, default=5, help='')
+
+parser.add_argument('--n_epoch', type=int, default=25, help='')
+
 parser.add_argument('--eval_interval', type=int, default=1, help='')
 parser.add_argument('--eval_batch_size', type=int, default=20, help='')
 parser.add_argument('--n_hidden', type=int, default=128, help='')
@@ -21,8 +23,9 @@ parser.add_argument('--n_gcn_layers', type=int, default=30, help='')
 parser.add_argument('--n_mlp_layers', type=int, default=3, help='')
 parser.add_argument('--learning_rate', type=float, default=0.0001, help='')
 parser.add_argument('--save_interval', type=int, default=1, help='')
-parser.add_argument('--save_dir', type=str, default="saved/exp1/", help='')
-parser.add_argument('--load_pt', type=str, default="", help='')
+parser.add_argument('--save_dir', type=str, default="C:/Users/10998/Desktop/N-clusters/density/saved_density/exp1/", help='')
+
+parser.add_argument('--load_pt', type=str, default="C:/Users/10998/Desktop/N-clusters/density/saved_density/exp1/15.pt", help='')
 args = parser.parse_args()
 
 n_edges = 20

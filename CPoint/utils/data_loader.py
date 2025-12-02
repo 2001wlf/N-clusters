@@ -2,9 +2,10 @@ import pickle
 import numpy as np
 
 class DataLoader(object):
-    def __init__(self, file_path, batch_size, problem="tsp"):
+    def __init__(self, file_path, batch_size, model_dist=None,problem="tsp"):
         self.file_path = file_path
         self.batch_size = batch_size
+        self.model_dist = model_dist
         if problem == "pdp" or problem == "cvrptw":
             self.n_ranges = 16
         else:
@@ -24,7 +25,7 @@ class DataLoader(object):
                 # n_nodes = 101 + 10 * i + index
                 n_nodes = 100
             loading_datasets.append(n_nodes)
-            with open(self.file_path + "/" + str(n_nodes) + ".pkl", "rb") as f:
+            with open(self.file_path + "/" +str(self.model_dist) + '_' + str(n_nodes) + ".pkl", "rb") as f:
                 self.dataset.append(pickle.load(f))
         print ("load datasets wtih nodes " + ", ".join([str(_) for _ in loading_datasets]))
         self.batch_index = 0

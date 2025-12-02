@@ -83,7 +83,7 @@ def Cpoints_model(my_node):
     parser.add_argument('--eval_interval', type=int, default=1, help='')
     parser.add_argument('--eval_batch_size', type=int, default=1, help='')
     parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/CPoint/mydata2/val', help='')
-    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/CPoint/saved/radius_centralpoint_gm/15.pt', help='')
+    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/CPoint/saved/radius_centralpoint_uniform/5.pt', help='')
     args = parser.parse_args()
     edge_cw = None
     n_edges = 20
@@ -164,6 +164,73 @@ def draw_picture(centers,true_data,pred_label, dataset_name):
     plt.grid()
     plt.savefig(f'cmps/{N}/{dataset_name}_clustering_results.png')
     #plt.show()
+def select_centers_from_topM(cpoint, X, k, m_factor=3, random_state=None):
+    """
+    在模型预测的分数 cpoint 上：
+    1) 取前 M = m_factor * k 个最大值作为候选中心集合；
+    2) 在候选中做“最远点贪心”选 k 个中心：
+       - 第一个中心随机从候选中选
+       - 之后每次选：对已有中心的最小距离最大的候选点
+
+    参数：
+        cpoint: (N,) 模型预测分数
+        X:      (N, d) 数据点坐标
+        k:      需要的中心数
+        m_factor: 候选集合倍数，2/3/4 都可以
+        random_state: 可选，用于复现实验
+    返回：
+        centers_idx: 选出的 k 个中心在原数据中的索引 (k,)
+    """
+    N = len(cpoint)
+    M = min(int(m_factor * k), N)
+    # 取 top-M 作为候选
+    candidate_idx = np.argsort(cpoint)[-M:]        # 从小到大，取最后 M 个
+    candidate_idx = candidate_idx[np.argsort(cpoint[candidate_idx])[::-1]]  # 按分数降序整理一下（可有可无）
+
+    rng = np.random.default_rng(random_state)
+
+    # 第一个中心：在候选中随机选
+    first = int(rng.choice(candidate_idx))
+    centers = [first]
+
+    if k == 1:
+        return np.array(centers, dtype=int)
+
+    # 为贪心准备：候选点坐标
+    cand_X = X[candidate_idx]          # (M, d)
+
+    # 当前中心坐标
+    center_X = X[centers].reshape(1, -1)
+
+    # 对所有候选点预先算一次到第一个中心的距离
+    # dists_to_centers[i] = 候选 i 对所有已选中心的最小距离
+    dists = cdist(cand_X, center_X)    # (M, 1)
+    min_dists = dists[:, 0]            # (M,)
+
+    # 把已选的那个候选点的距离设为 0，防止后面又选到
+    min_dists[candidate_idx == first] = 0.0
+
+    # 继续选剩下的 k-1 个中心
+    for _ in range(1, k):
+        # 如果还有候选的最小距离全是 0，说明候选太少或都堆一起了，直接 break
+        if np.all(min_dists == 0):
+            break
+
+        # 选“离已有中心最远”的候选
+        best_pos = int(np.argmax(min_dists))            # 在候选数组里的位置
+        new_center_idx = int(candidate_idx[best_pos])   # 映射回原数据索引
+        centers.append(new_center_idx)
+
+        # 更新所有候选点到“已有中心集合”的最小距离
+        new_center_X = X[new_center_idx].reshape(1, -1) # (1, d)
+        new_d = cdist(cand_X, new_center_X)[:, 0]       # (M,)
+        min_dists = np.minimum(min_dists, new_d)
+
+        # 已经选过的候选点距离设为 0，避免再次被选中
+        for c in centers:
+            min_dists[candidate_idx == c] = 0.0
+
+    return np.array(centers, dtype=int)
 origin_radius_list=[]
 model_radius_list=[]
 model_acc_simple_list = []   # 上面那次（radii→kmedoid，max_iter=0）的ACC
@@ -222,20 +289,22 @@ def read_data(true_data,true_label,dataset_name):
         #pred_label, centers = kmedoid_from_radii(radii, true_data, k,max_iter=0)
         
         # 1) 先把 top-k 的索引按 Cpoint 值降序稳定一下（可选）
-        order = np.argsort(cpoint[topk_indices])[::-1]
-        centers_idx = topk_indices[order]
+        #order = np.argsort(cpoint[topk_indices])[::-1]
+        #centers_idx = topk_indices[order]
 
         # 2) 取这 k 个点作为“固定中心”
+        #centers = true_data[centers_idx]           # (k, d)
+        #自己的预测中心
+        centers_idx = select_centers_from_topM(cpoint, true_data, k, m_factor=3, random_state=42)
         centers = true_data[centers_idx]           # (k, d)
-
         # 3) 只做一次“最近中心分配”，不更新中心（无迭代）
         D = cdist(true_data, centers)               # (N, k)
         pred_label = np.argmin(D, axis=1)           # (N,)
         
         #根据预测的centers画出数据集并且标注中心点的位置
         #marked = get_marked_indices(cpoint, threshold=0.1)               # 方法 1
-        marked = get_marked_indices(cpoint, ratio=0.10)               # 方法 2
-        draw_picture(marked,true_data,true_label,dataset_name)
+        marked = get_marked_indices(cpoint, ratio=0.01)               # 方法 2
+        draw_picture(centers_idx,true_data,pred_label,dataset_name)
         
         model_acc_simple = compute_accuracy(true_label, pred_label)
         model_k_val = int(len(np.unique(pred_label)))

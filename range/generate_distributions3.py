@@ -1,12 +1,13 @@
-from util3 import densityQuery,fringeScore,structuralEntorpy,raidusQuery,multiprocess,compute_cluster_size_density_radius
+from util3 import densityQuery,fringeScore,structuralEntorpy,raidusQuery,compute_cluster_size_density_radius
 import pickle
+from MLSP import MLSP_cluster
+from util3 import radius_zone_feature
 import numpy as np
 from time import time
 from pathlib import Path
 import argparse
 from sklearn.cluster import KMeans
 import warnings
-from sklearn.preprocessing import MinMaxScaler
 from mydata2.generate_dataset import generate_smile
 warnings.filterwarnings("ignore",category=FutureWarning)
 
@@ -69,97 +70,16 @@ def my_generate_problem(xys,k):
     #SE = structuralEntorpy(xys)
     #SE = np.multiply(SE, 10)
     kmeans= KMeans(init='k-means++', n_clusters=k).fit(xys)
-    feats=compute_cluster_size_density_radius(xys,kmeans.labels_,k)
-    xys=feats[:,:2]
-    Radius=feats[:,2]
-    return xys,Radius
-def generate_subgaussian_tsp(graph_size, lower=-3, upper=3):
-      """
-      Generate data from a truncated normal distribution (sub-Gaussian).
-      """
-      data = np.random.normal(0, 1, size=(graph_size, 2))
-      mask = (data < lower) | (data > upper)
-      row_mask = mask.any(axis=1)
-      while row_mask.any():
-          new = np.random.normal(0, 1, size=(row_mask.sum(), 2))
-          data[row_mask] = new
-          mask = (data < lower) | (data > upper)
-          row_mask = mask.any(axis=1)
-      return MinMaxScaler().fit_transform(data)
-def generate_exponential_tsp(graph_size, scale=1.0):
-    """
-    Generate data from an exponential distribution.
-    """
-    data = np.random.exponential(scale, size=(graph_size, 2))
-    return MinMaxScaler().fit_transform(data)
+    #centers,labels,cost=MLSP_cluster(xys,k)
+    #Zone=radius_zone_feature(xys,labels,k)
+    Zone=radius_zone_feature(xys,kmeans.labels_,k)
+    return xys,Zone
 
-def generate_student_t_tsp(graph_size, df=3):
-    """
-    Generate data from a Student's t-distribution with df degrees of freedom.
-    """
-    data = np.random.standard_t(df, size=(graph_size, 2))
-    return MinMaxScaler().fit_transform(data)
-def generate_problem(args, init=None):
-    if init:
-        xys, demands, capacity, pkwargs = init
-    else:
-        if args.dist == "uniform":
-            xys = clustered_xys(args) if args.n_c else np.random.uniform(0, 1, size=(1 + args.n_nodes, 2))
-            demands = np.random.randint(args.min_demand, args.max_demand, size=1 + args.n_nodes)
-            demands[0] = 0
-        elif args.dist == "gm":
-            training_set = [(0, 0), (3, 10), (3, 30), (3, 50), (5, 10), (5, 30), (5, 50), (7, 10), (7, 30), (7, 50)]
-            if args.partition != "train":
-                num_modes, cdist = training_set[args.id % len(training_set)]
-            else:
-                # num_modes, cdist = training_set[args.id // 50]
-                num_modes, cdist = training_set[args.id % len(training_set)]
-            xys = generate_gaussian_mixture_tsp(1 + args.n_nodes, num_modes, cdist)
-            demands = np.random.randint(args.min_demand, args.max_demand, size=1 + args.n_nodes)
-            demands[0] = 0
-        elif args.dist == "subg":
-            xys = generate_subgaussian_tsp(1 + args.n_nodes)
-            demands = np.random.randint(args.min_demand, args.max_demand, size=1 + args.n_nodes)
-            demands[0] = 0
-        elif args.dist == "exp":
-            xys = generate_exponential_tsp(1 + args.n_nodes)
-            demands = np.random.randint(args.min_demand, args.max_demand, size=1 + args.n_nodes)
-            demands[0] = 0
-        elif args.dist == "student":
-            xys = generate_student_t_tsp(1 + args.n_nodes)
-            demands = np.random.randint(args.min_demand, args.max_demand, size=1 + args.n_nodes)
-            demands[0] = 0
-    #density = densityQuery(xys)
-    #fringe = fringeScore(xys)
-    #SE = structuralEntorpy(xys)
-    #SE = np.multiply(SE, 10)
-    density=[]
-    fringe=[]
-    SE=[]
-    kmeans= KMeans(init='k-means++', n_clusters=args.n_clusters).fit(xys)
-    #Radius=raidusQuery(xys,kmeans.labels_)
-    feats=compute_cluster_size_density_radius(xys,kmeans.labels_,args.n_clusters)
-    xys=feats[:,:2]
-    Radius=feats[:,2]
-    return xys, density, fringe, SE,Radius
-
-def generate_i(gen_args):
-    i, seed, args, init = gen_args
-    np.random.seed(seed)
-    start_time = time()
-    # print(f'Generating problem {i}...')
-    args.id = i
-    p, q, f, s,r = generate_problem(args, init)
-
-    total_time = time() - start_time
-    # print(f'Problem {i} took {total_time:.4f} seconds')
-    return p, q, f, s,r
-
-def generate_datasets():
+def generate_datasets(x,label):
     parser = argparse.ArgumentParser()
     parser.add_argument('--save_dir', type=Path)
     parser.add_argument('--partition', type=str, choices=['train', 'val', 'test'])
-    parser.add_argument('--n_nodes', type=int,default=100)
+    parser.add_argument('--n_nodes', type=int)
     parser.add_argument('--n_c', type=int, default=0, help='Number of city clusters in the problem instance')
     parser.add_argument('--mixed', action='store_true')
     parser.add_argument('--std_cluster', type=float, default=0.07, help='Standard deviation for normal distribution of city clusters')
@@ -179,54 +99,35 @@ def generate_datasets():
     parser.add_argument('--solver', type=str, choices=['LKH', 'HGS'], default='LKH')
     parser.add_argument('--naive_init', action='store_true')
     parser.add_argument('--full_solver_init', action='store_true')
-    #parser.add_argument('--dist', type=str, choices=['uniform', 'gm'], default='uniform')  # (0, 0) + {3, 5, 7} * {10, 30, 50}
-    parser.add_argument('--dist', type=str, choices=['uniform', 'gm', 'subg', 'exp', 'student'], default='gm')
+    parser.add_argument('--dist', type=str, choices=['uniform', 'gm'], default='gm')  # (0, 0) + {3, 5, 7} * {10, 30, 50}
     args = parser.parse_args()
-    m_nodes=args.n_nodes
-    #args.partition='train'
+    k=len(np.unique(label))
+    
+    
     args.partition='val'
-    
-    
-    
     args.save_dir="mydata2"
     #args.save_dir.mkdir(parents=True, exist_ok=True)
     #现在是测试用
-    #args.n_instances=1;
-    args.n_instances = args.n_instances or (5000 if args.partition == 'train' else 1000)
+    args.n_instances=1;
+    #args.n_instances = args.n_instances or (5000 if args.partition == 'train' else 1000)
 
+    partition = args.partition
     ref_path = ref_problems = None
     #args.n_nodes=x.shape[0]
-    
-    args.n_nodes=args.n_clusters
-    
-    
+    args.n_nodes=k
     save_path = "{}/{}/{}.pkl".format(args.save_dir,args.partition,args.n_nodes)
     n_nodes=args.n_nodes
-    args.n_nodes=m_nodes;
     #n_nodes = args.n_nodes + 1
     n_neighbours = 20
-    
+    n_neighbours = min(n_neighbours, n_nodes - 1)
     n_samples = args.n_instances
     
-    # print(f'Generating to {save_path}', flush=True)
-    # print(f'Generating {args.n_instances} {args.ptype} instances from {"uniform distribution" if args.n_c == 0 else f"mixed distribution with {args.n_c} city clusters" if args.mixed else f"clustered distribution with {args.n_c} city_clusters"}, each with {args.n_clusters} radial sections to run LKH subsolver on', flush=True)
-    n_nodes=m_nodes;
-    results = multiprocess(generate_i, list(zip(
-        range(0, args.n_instances),
-        np.random.randint(np.iinfo(np.int32).max, size=args.n_instances),
-        [args] * args.n_instances,
-        [None] * args.n_instances,
-    )), cpus=args.n_process or (args.n_cpus - 1) // args.n_clusters + 1)
     #读取数据集
     #笑脸
-    #print(x.shape)
-    #k=len(np.unique(label))
-    #x,Radius = my_generate_problem(x,k)
-    x,q,frige,s,Radius = zip(*results)
-    x = np.array(x)
     print(x.shape)
-    n_nodes=args.n_clusters
-    n_neighbours = min(n_neighbours, n_nodes - 1)
+    x,Zone = my_generate_problem(x,k)
+    
+    x = np.array(x)
     
     dist = x.reshape(n_samples, n_nodes, 1, 2) - x.reshape(n_samples, 1, n_nodes, 2)
     dist = np.sqrt((dist ** 2).sum(-1))
@@ -249,14 +150,13 @@ def generate_datasets():
     print(edge_feat.shape);
     print(edge_index.shape)
     print(inverse_edge_index.shape);
-    print(np.array(Radius).reshape(-1,n_nodes,1).shape)
+    print(np.array(Zone).reshape(-1,n_nodes,1).shape)
     feat = {"node_feat": x, # n_samples x n_nodes x 2
             "edge_feat":edge_feat, # n_samples x n_nodes x n_neighbours
             "edge_index":edge_index, # n_samples x n_nodes x n_neighbours
             "inverse_edge_index":inverse_edge_index, # n_samples x n_nodes x n_neighbours
-            "density_feat":np.array(Radius).reshape(-1,n_nodes,1) # n_samples x n_nodes x 1
+            "density_feat":np.array(Zone).reshape(-1,n_nodes,1) # n_samples x n_nodes x 1
             }
     with open(save_path, "wb") as f:
         pickle.dump(feat, f)
-if __name__ == "__main__":
-    generate_datasets()
+

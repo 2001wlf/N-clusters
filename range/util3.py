@@ -284,8 +284,8 @@ def get_route_distance(route, distance_matrix):
     distance += distance_matrix[last_node][0]
     return distance
 
-def multiprocess(func, tasks, cpus=None):
-    if cpus == 1 or len(tasks) == 1:
+def multiprocess(func, tasks, cpus=None,force_single=False):
+    if force_single or cpus == 1 or len(tasks) == 1:
         return [func(t) for t in tasks]
     with Pool(cpus or os.cpu_count()) as pool:
         return list(pool.imap(func, tasks))
@@ -1064,3 +1064,55 @@ def compute_cluster_size_density_radius(X, labels, k, n_bins=10, eps=1e-12):
         feats[c, 2] = float(radius)
 
     return feats
+def radius_zone_feature(xys, labels, k, n_bins=10, eps=1e-12):
+    """
+    xys    : (N, d) 数据点
+    labels : (N,)   每个点的簇标签，取值 0..k-1
+    k      : 簇个数
+    n_bins : 区位个数，默认 10
+    返回：
+      zones : (N,) 一维向量，每个点的区位编号 1..n_bins
+    """
+    xys = np.asarray(xys)
+    labels = np.asarray(labels)
+    N, d = xys.shape
+
+    # 1. 计算每个簇的中心 (简单用均值)
+    centers = np.zeros((k, d), dtype=xys.dtype)
+    for c in range(k):
+        mask = (labels == c)
+        if not np.any(mask):
+            # 该簇没有点就跳过
+            continue
+        centers[c] = xys[mask].mean(axis=0)
+
+    # 2. 计算每个点到自己簇中心的距离 r_i
+    dists = np.linalg.norm(xys - centers[labels], axis=1)  # (N,)
+
+    # 3. 计算每个簇内的最大半径 R_max
+    R_max = np.zeros(k, dtype=xys.dtype)
+    for c in range(k):
+        mask = (labels == c)
+        if not np.any(mask):
+            continue
+        R_max[c] = dists[mask].max()
+
+    # 避免除零
+    R_max[R_max < eps] = eps
+
+    # 4. 归一化半径 t_i = r_i / R_max[label_i]
+    t_norm = dists / R_max[labels]  # (N,)
+
+    # 保证在 [0,1]
+    t_norm = np.clip(t_norm, 0.0, 1.0)
+
+    # 5. 映射到 n_bins 个区位：0..n_bins-1
+    #   t in (0,1] -> bin 0..n_bins-1
+    bins = (t_norm * n_bins).astype(int)
+    # t=1.0 时会变成 n_bins，需要往回拉一格
+    bins[bins == n_bins] = n_bins - 1
+
+    # 如果你希望区位编号从 1 开始（1..10），可加 1
+    zones = bins + 1
+
+    return zones

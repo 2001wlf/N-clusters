@@ -1,4 +1,4 @@
-from util3 import densityQuery,fringeScore,structuralEntorpy,raidusQuery
+from util3 import densityQuery,fringeScore,structuralEntorpy,raidusQuery,compute_cluster_size_density_radius
 import pickle
 import numpy as np
 from time import time
@@ -68,7 +68,9 @@ def my_generate_problem(xys,k):
     #SE = structuralEntorpy(xys)
     #SE = np.multiply(SE, 10)
     kmeans= KMeans(init='k-means++', n_clusters=k).fit(xys)
-    Radius=raidusQuery(xys,kmeans.labels_)
+    feats=compute_cluster_size_density_radius(xys,kmeans.labels_,k)
+    xys=feats[:,:2]
+    Radius=feats[:,2]
     return xys,Radius
 def generate_problem(args, init=None):
     if init:
@@ -89,11 +91,19 @@ def generate_problem(args, init=None):
             demands = np.random.randint(args.min_demand, args.max_demand, size=1 + args.n_nodes)
             demands[0] = 0
 
-    density = densityQuery(xys)
-    fringe = fringeScore(xys)
-    SE = structuralEntorpy(xys)
-    SE = np.multiply(SE, 10)
-    return xys, density, fringe, SE
+    #density = densityQuery(xys)
+    #fringe = fringeScore(xys)
+    #SE = structuralEntorpy(xys)
+    #SE = np.multiply(SE, 10)
+    density=[]
+    fringe=[]
+    SE=[]
+    kmeans= KMeans(init='k-means++', n_clusters=args.n_clusters).fit(xys)
+    #Radius=raidusQuery(xys,kmeans.labels_)
+    feats=compute_cluster_size_density_radius(xys,kmeans.labels_,args.n_clusters)
+    xys=feats[:,:2]
+    Radius=feats[:,2]
+    return xys, density, fringe, SE,Radius
 
 def generate_i(gen_args):
     i, seed, args, init = gen_args
@@ -133,6 +143,9 @@ def generate_datasets(x,label):
     parser.add_argument('--full_solver_init', action='store_true')
     parser.add_argument('--dist', type=str, choices=['uniform', 'gm'], default='gm')  # (0, 0) + {3, 5, 7} * {10, 30, 50}
     args = parser.parse_args()
+    k=len(np.unique(label))
+    
+    
     args.partition='val'
     args.save_dir="mydata2"
     #args.save_dir.mkdir(parents=True, exist_ok=True)
@@ -142,11 +155,13 @@ def generate_datasets(x,label):
 
     partition = args.partition
     ref_path = ref_problems = None
-    args.n_nodes=x.shape[0]
+    #args.n_nodes=x.shape[0]
+    args.n_nodes=k
     save_path = "{}/{}/{}.pkl".format(args.save_dir,args.partition,args.n_nodes)
     n_nodes=args.n_nodes
     #n_nodes = args.n_nodes + 1
     n_neighbours = 20
+    n_neighbours = min(n_neighbours, n_nodes - 1)
     n_samples = args.n_instances
     
     # print(f'Generating to {save_path}', flush=True)
@@ -161,11 +176,10 @@ def generate_datasets(x,label):
     #读取数据集
     #笑脸
     print(x.shape)
-    k=len(np.unique(label))
     x,Radius = my_generate_problem(x,k)
     
     x = np.array(x)
-
+    
     dist = x.reshape(n_samples, n_nodes, 1, 2) - x.reshape(n_samples, 1, n_nodes, 2)
     dist = np.sqrt((dist ** 2).sum(-1))
     edge_index = np.argsort(dist, -1)[:, :, 1:1 + n_neighbours]
