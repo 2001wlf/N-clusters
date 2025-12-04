@@ -3,9 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from util3 import compute_cluster_size_density_radius
+from mytest3 import draw_zone_picture
 def main():
     # 1. 读入 pkl 文件（按你的路径来）
-    pkl_path = "C:/Users/10998/Desktop/N-clusters/radius/mydata2/train/10.pkl"
+    pkl_path = "C:/Users/10998/Desktop/N-clusters/range/mydata2/train/100.pkl"
     with open(pkl_path, "rb") as f:
         feat = pickle.load(f)
 
@@ -36,6 +37,8 @@ def main():
 
     for i, ax in enumerate(axes):
         points = samples[i]      # (n_nodes, 2)
+        Zone=density[i]
+        draw_zone_picture(points,Zone,ax)
         x = points[:, 0]
         y = points[:, 1]
         ax.scatter(x, y, s=5)
@@ -47,7 +50,7 @@ def main():
     plt.tight_layout()
 
     # 5. 保存图像为文件（不会弹出窗口）
-    output_path = "C:/Users/10998/Desktop/N-clusters/CPoint/pkl_result.png"
+    output_path = "C:/Users/10998/Desktop/N-clusters/range/pkl_result.png"
     plt.savefig(output_path, dpi=200)
     print(f"图像已保存到: {output_path}")
 

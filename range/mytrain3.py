@@ -16,7 +16,7 @@ parser.add_argument('--n_nodes', type=int, default=100, help='')
 
 parser.add_argument('--file_path', default='mydata2/train', help='')
 parser.add_argument('--eval_file_path', default='mydata2/val', help='')
-parser.add_argument('--n_epoch', type=int, default=5, help='')
+parser.add_argument('--n_epoch', type=int, default=10, help='')
 parser.add_argument('--eval_interval', type=int, default=1, help='')
 parser.add_argument('--eval_batch_size', type=int, default=20, help='')
 parser.add_argument('--n_hidden', type=int, default=128, help='')
@@ -25,7 +25,7 @@ parser.add_argument('--n_mlp_layers', type=int, default=3, help='')
 parser.add_argument('--learning_rate', type=float, default=0.0001, help='')
 parser.add_argument('--save_interval', type=int, default=1, help='')
 parser.add_argument('--save_dir', type=str, default="saved/radius_centralpoint_uniform/", help='')
-parser.add_argument('--load_pt', type=str, default="", help='')
+parser.add_argument('--load_pt', type=str, default="saved/radius_centralpoint_uniform/5.pt", help='')
 args = parser.parse_args()
 
 n_edges = 20

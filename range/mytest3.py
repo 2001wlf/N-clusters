@@ -83,8 +83,8 @@ def radius_model(my_node):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--eval_interval', type=int, default=1, help='')
     parser.add_argument('--eval_batch_size', type=int, default=1, help='')
-    parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/radius/mydata2/val', help='')
-    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/radius/saved/radius_centralpoint_uniform/5.pt', help='')
+    parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/range/mydata2/val', help='')
+    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/range/saved/radius_centralpoint_uniform/5.pt', help='')
     args = parser.parse_args()
     edge_cw = None
     n_edges = 20
@@ -133,6 +133,26 @@ def make_uniform(start, end, length, np_nums):
     assignment = np.argmin(dis_map,axis=1)
     new_nums = s[assignment]
     return new_nums
+def quantize_to_deciles(values, vmin=None, vmax=None):
+    """
+    将一维连续数值划分为 10 个档位，返回 1~10 的整数标签。
+    默认用自身的 min/max 做线性归一化。
+    """
+    vals = np.asarray(values, dtype=float)
+
+    if vmin is None:
+        vmin = vals.min()
+    if vmax is None:
+        vmax = vals.max()
+
+    if vmax - vmin < 1e-12:
+        # 所有值几乎一样，就都给 5 分（中间档）
+        return np.ones_like(vals, dtype=int) * 5
+
+    norm = (vals - vmin) / (vmax - vmin)  # 映射到 [0,1]
+    deciles = np.floor(norm * 10).astype(int) + 1  # 1~10
+    deciles = np.clip(deciles, 1, 10)
+    return deciles
 def draw_picture(centers,true_data,pred_label, dataset_name):
 
     plt.figure(figsize=(8, 6))
@@ -149,6 +169,48 @@ def draw_picture(centers,true_data,pred_label, dataset_name):
     plt.grid()
     plt.savefig(f'cmps/{N}/{dataset_name}_clustering_results.png')
     #plt.show()
+def draw_zone_picture(true_data, pred_zone, dataset_name):
+    """
+    绘制模型预测的 zone（1~10 档），按渐变色显示。
+    
+    true_data: (N,2)
+    pred_zone: (N,) 取值 1~10
+    """
+
+    plt.figure(figsize=(8, 6))
+    N = true_data.shape[0]
+
+    # 选择一种渐变色（viridis/plasma/coolwarm/turbo 等）
+    cmap = plt.cm.viridis  
+
+    # 将 pred_zone 映射到 0~1（给 colormap 用）
+    # pred_zone 在 1~10 → 映射为 0~1
+    norm_vals = (pred_zone - pred_zone.min()) / (pred_zone.max() - pred_zone.min())
+
+    # 绘制点
+    plt.scatter(true_data[:, 0], true_data[:, 1],
+                c=norm_vals,
+                cmap=cmap,
+                s=30,
+                alpha=0.9)
+
+    # 加一个颜色条用于标注 zone 数值
+    cbar = plt.colorbar()
+    cbar.set_label("predicted zone (1–10)")
+    cbar.set_ticks(np.linspace(0, 1, 10))
+    cbar.set_ticklabels([str(i) for i in range(1, 11)])
+
+    plt.title(f"Predicted Zone Visualization for {dataset_name}")
+    plt.xlabel("Feature 1")
+    plt.ylabel("Feature 2")
+    plt.grid(True)
+
+    # 保存图片
+    save_dir = f"cmps/{N}"
+    os.makedirs(save_dir, exist_ok=True)
+    plt.savefig(f"{save_dir}/{dataset_name}_zone_plot.png")
+    # plt.show()
+    plt.close()
 origin_radius_list=[]
 model_radius_list=[]
 model_acc_simple_list = []   # 上面那次（radii→kmedoid，max_iter=0）的ACC
@@ -169,27 +231,36 @@ def read_data(true_data,true_label,dataset_name):
 
     k = len(np.unique(true_label))
     kmeans = KMeans(init='k-means++',n_clusters=k, random_state=0).fit(true_data)
-    #r_kmeans = raidusQuery(true_data, kmeans.labels_)  # 全体样本的参考半径（已在 [0,1]^2 空间）
-    #r_point = raidusQuery(true_data, kmeans.labels_)  # 长度 N
-    #r_kmeans_k = [float(np.max(r_point[kmeans.labels_ == j])) if np.any(kmeans.labels_==j) else 0.0 for j in range(k)]
-    #r_kmeans_k = sorted(r_kmeans_k, reverse=True)
-    #print(f"{dataset_name} {r_kmeans_k}")
+
     feats=compute_cluster_size_density_radius(true_data,kmeans.labels_,k)
     origin_radius_list.append(feats[:,2])
-    #print(f"{dataset_name} {r_kmeans.tolist()}")
-    # 保存用于后续评估（此处不再打印ACC，避免打断你的两行输出）
     init_acc = compute_accuracy(true_label, kmeans.labels_)
     
-    #k=len(np.unique(true_label))
-    #k=10
-    #kmeans=KMeans(n_clusters=k, random_state=0).fit(true_data)
-    #radii=raidusQuery(true_data,kmeans.labels_)
-    #topk_indices = np.argsort(radii)[-k:]  # 从小到大排，取最后k个索引
-    #topk_values = radii[topk_indices]
-    #print(f"origin topk_radii: {topk_values}")
-    # Compute and print clustering accuracy
-    #init_acc = compute_accuracy(true_label, kmeans.labels_)
-    #print(f"Clustering accuracy: {init_acc:.4f}")
+    # ==== 基于 KMeans 距离的“真值”分区标签（1~10） ====
+    labels = kmeans.labels_
+    centers = kmeans.cluster_centers_  # (k, 2)
+
+    # 每个点到自己簇中心的欧氏距离
+    dists = np.linalg.norm(true_data - centers[labels], axis=1)  # (N,)
+
+    # 每个簇内部的最大距离，用来当 100%
+    cluster_max = np.zeros(k, dtype=float)
+    for c in range(k):
+        mask = (labels == c)
+        if mask.any():
+            cluster_max[c] = dists[mask].max()
+        else:
+            cluster_max[c] = 0.0
+
+    # 归一化到 [0,1]，再划分到 1~10 档
+    norm_dist = np.zeros_like(dists)
+    for i in range(len(dists)):
+        m = cluster_max[labels[i]]
+        norm_dist[i] = dists[i] / m if m > 1e-12 else 0.0
+
+    # 理论上 norm_dist ∈ [0,1]，直接映射到 1~10
+    true_zone = np.ceil(norm_dist * 10).astype(int)
+    true_zone = np.clip(true_zone, 1, 10)
 
     n_node=len(true_data)
     
@@ -197,76 +268,46 @@ def read_data(true_data,true_label,dataset_name):
     
     radius_model(n_node)
     
-    # --- compute pairwise Euclidean distance matrix for iris_data ---
-    #dist_matrix = cdist(true_data, true_data, metric='euclidean')
-    #for i in range(15):
-     #   for j in range(15):
-      #      print(f"Distance between point {i} and point {j}: {dist_matrix[i, j]:.4f}")
-    #print("Distance matrix shape:", dist_matrix.shape)
-    # --- perform coverage-based sampling on predicted radii ---
     pred_dir = os.path.join("cmps", str(n_node))
     # pick the first pred file (e.g., "0_pred.txt")
     pred_files = sorted(glob.glob(os.path.join(pred_dir, "*_pred.txt")))
     if pred_files:
-        radii = np.loadtxt(pred_files[0])
-        #radii=radii*10
-        #topk_indices = np.argsort(radii)[-k:]  # 从小到大排，取最后k个索引
-        #topk_values = radii[topk_indices]
-        
-        #topk_values_tosee = np.sort(radii)[-k:][::-1]  # 降序
-        #print(topk_values_tosee.tolist())
-        model_radius_list.append(radii)
-        
-        #print(f"model topk_radii: {topk_values}")
-        #print(topk_values.tolist())
-        
-        # ensure radii is a column vector
-        #centers_idx, ref_c, hit_ratio, assign_acc = eval_topk_vs_kmeans(true_data, radii, k=k, match_eps=0.05)
-        #print("Top-k 命中参考中心比例:", hit_ratio)
-        #print("用 Top-k 做最近中心分配 vs KMeans 标签的一致性 ACC:", assign_acc)
-        # initialize centers from radii and assign by nearest medoid
-        #pred_label, centers = kmedoid_from_radii(radii, true_data, k,max_iter=0)
-        #根据预测的centers画出数据集并且标注中心点的位置
-        #draw_picture(centers,true_data,pred_label,dataset_name)
-        #model_acc_simple = compute_accuracy(true_label, pred_label)
-        #model_k_val = int(len(np.unique(pred_label)))
-        #model_acc_simple_list.append(model_acc_simple)
-        #model_k_list.append(model_k_val)
-        #print(f"\nInitial centers from radii: {centers},\tInit_acc: {init_acc:.4f},\t Model acc: {compute_accuracy(true_label, pred_label):.4f},\t Model k: {len(np.unique(pred_label))}")
-    
-    # proceed with assignments as clusters
-    # now you can continue with your floyd/kmeans-like update process or use assignments directly
-       #maximun_acc=0
-        #maximun_acc_k=0
-        #maximun_acc_i=0;
-        #for i in range(1,6):
-            #dbsacn_label= variable_eps_dbscan(true_data, radii, 5)
-            #dbsacn_k=len(np.unique(dbsacn_label))
-            #print(f"DBSCAN clustering accuracy: {compute_accuracy(true_label, dbsacn_label):.4f}, clusters: {dbsacn_k}")
-            #dbsacn_acc= compute_accuracy(true_label, dbsacn_label)
-            #if dbsacn_acc>maximun_acc:
-             #   maximun_acc=dbsacn_acc
-              #  maximun_acc_k=dbsacn_k
-               # maximun_acc_i=i
-        #print(f"Dataset: {dataset_name}, Initial ACC: {init_acc:.4f}, Model ACC: {maximun_acc:.4f},Model K: {maximun_acc_k}, Model I: {maximun_acc_i}")
-        #return init_acc, maximun_acc, dataset_name
-        
-        #maximun_acc,maximun_acc_index = code_for_up(true_data, true_label, k, radii)
-        maximun_acc=init_acc
-        #print("\nInit_acc",init_acc,"\t最大ACC:", maximun_acc, "\t方法:", maximun_acc_index)     
+        Zone = np.loadtxt(pred_files[0])
+        Zone = np.asarray(Zone).reshape(-1)  # 展平成一维
+
+        model_radius_list.append(Zone)
+
+        if Zone.shape[0] != true_data.shape[0]:
+            print(f"[WARN] {dataset_name}: 预测值长度({Zone.shape[0]}) != 数据点数({true_data.shape[0]}), 无法计算 zone ACC")
+            maximun_acc = init_acc
+        else:
+            # ==== 按照每个簇内部的预测值范围，分别做 10 档 ====
+            pred_zone = np.zeros_like(Zone, dtype=int)
+
+            for c in range(k):
+                mask = (labels == c)
+                if not mask.any():
+                    continue
+                vals_c = Zone[mask]
+                vmin = vals_c.min()
+                vmax = vals_c.max()
+
+                if vmax - vmin < 1e-12:
+                    # 这一类里预测值几乎相同，就给一个中间档位，例如 5
+                    pred_zone[mask] = 5
+                else:
+                    norm_c = (vals_c - vmin) / (vmax - vmin)       # 映射到 [0,1]
+                    deciles_c = np.floor(norm_c * 10).astype(int) + 1  # 1~10
+                    deciles_c = np.clip(deciles_c, 1, 10)
+                    pred_zone[mask] = deciles_c
+
+            # ==== 与 true_zone 对比，计算按类归一化后的 zone-ACC ====
+            zone_acc = (pred_zone == true_zone).mean()
+            print(f"{dataset_name} per-cluster zone-ACC = {zone_acc:.4f}")
+
+            model_acc_simple_list.append(zone_acc)
+            maximun_acc = init_acc
         return init_acc, maximun_acc, dataset_name
-        
-        #assignments, centers, noise = coverage_sampling(radii, true_data, k)
-        #print("Sampled centers (indices):", centers)
-        #for cid in range(len(centers)):
-        #    size = np.sum(assignments == cid)
-        #    print(f"Cluster {cid}: size {size}")
-        #print(f"Noise points count: {len(noise)}")
-        # Compute and print accuracy excluding noise
-        #acc_cov = compute_accuracy_filtered(true_label, assignments, noise_label=-1)
-        #print(f"Coverage sampling accuracy (excluding noise): {acc_cov:.4f}")
-
-
     else:
         print(f"No pred files found in {pred_dir}")
         model_acc_simple_list.append(float('nan'))  # 占位，便于 .4f 打印
