@@ -1,6 +1,6 @@
 from util3 import densityQuery,fringeScore,structuralEntorpy,raidusQuery,multiprocess,compute_cluster_size_density_radius
 from util3 import radius_zone_feature
-from MLSP import MLSP_cluster
+import gc
 import pickle
 import numpy as np
 from time import time
@@ -9,6 +9,7 @@ import argparse
 from sklearn.cluster import KMeans
 import warnings
 from sklearn.preprocessing import MinMaxScaler
+import random
 from mydata2.generate_dataset import generate_smile
 warnings.filterwarnings("ignore",category=FutureWarning)
 
@@ -141,19 +142,20 @@ def generate_i(gen_args):
     p, q, f, s = generate_problem(args, init)
 
     total_time = time() - start_time
-    print(f'Problem {i} took {total_time:.4f} seconds')
+    if i%100 ==0:
+        print(f'Problem {i} took {total_time:.4f} seconds')
     return p, q, f, s
-def generate_datasets(n_nodes=100,batch_idx=0,dist="uniform"):
+def generate_datasets(n_instances=500,batch_idx=0,dist="uniform",n_clusters=10):
     parser = argparse.ArgumentParser()
     parser.add_argument('--save_dir', type=Path)
     parser.add_argument('--partition', type=str, choices=['train', 'val', 'test'])
-    parser.add_argument('--n_nodes', type=int,default=n_nodes)
+    parser.add_argument('--n_nodes', type=int,default=1000)
     parser.add_argument('--n_c', type=int, default=0, help='Number of city clusters in the problem instance')
     parser.add_argument('--mixed', action='store_true')
     parser.add_argument('--std_cluster', type=float, default=0.07, help='Standard deviation for normal distribution of city clusters')
     parser.add_argument('--ptype', type=str, default='CVRP', choices=['CVRP', 'CVRPTW', 'VRPMPD'])
-    parser.add_argument('--n_instances', type=int, default=None)
-    parser.add_argument('--n_clusters', type=int, default=10)
+    parser.add_argument('--n_instances', type=int, default=n_instances)
+    parser.add_argument('--n_clusters', type=int, default=n_clusters)
     parser.add_argument('--n_lkh_trials', type=int, default=100)
     parser.add_argument('--min_demand', type=int, default=1, help='Inclusive')
     parser.add_argument('--max_demand', type=int, default=10, help='Exclusive')
@@ -179,7 +181,7 @@ def generate_datasets(n_nodes=100,batch_idx=0,dist="uniform"):
     #args.save_dir.mkdir(parents=True, exist_ok=True)
     #现在是测试用
     #args.n_instances=1;
-    args.n_instances = args.n_instances or (5000 if args.partition == 'train' else 1000)
+    #args.n_instances = args.n_instances or (5000 if args.partition == 'train' else 1000)
 
     ref_path = ref_problems = None
     #args.n_nodes=x.shape[0]
@@ -255,31 +257,38 @@ def generate_datasets(n_nodes=100,batch_idx=0,dist="uniform"):
             }
     with open(save_path, "wb") as f:
         pickle.dump(feat, f)
+    del x, dist, edge_feat, edge_index, inverse_edge_index, feat, results
+    gc.collect()
 if __name__ == "__main__":
     # --- 修改开始：设置分批参数 ---
     TOTAL_INSTANCES = 10000      # 总共想要 10000 个
     BATCH_SIZE = 500           # 每次生成 500 个 (防止炸内存)
     N_BATCHES = TOTAL_INSTANCES // BATCH_SIZE
-    dist='uniform'
-    for batch_idx in range(N_BATCHES):
-            print(f"\n=== Generating Batch {batch_idx + 1}/{N_BATCHES} ===")
-            generate_datasets(BATCH_SIZE,batch_idx,dist)
+    #dist='uniform'
+    #for batch_idx in range(N_BATCHES):
+     #   print(f"\n=== Generating Batch {batch_idx + 1}/{N_BATCHES} ===")
+      #  n_clusters = random.randint(2, 10)
+       # generate_datasets(BATCH_SIZE,batch_idx,dist,n_clusters)
     dist='gm'
     for batch_idx in range(N_BATCHES):
         print(f"\n=== Generating Batch {batch_idx + 1}/{N_BATCHES} ===")
-        generate_datasets(BATCH_SIZE,batch_idx,dist) 
+        n_clusters = 10
+        generate_datasets(BATCH_SIZE,batch_idx,dist,n_clusters)
     dist='subg'
     for batch_idx in range(N_BATCHES):
-            print(f"\n=== Generating Batch {batch_idx + 1}/{N_BATCHES} ===")
-            generate_datasets(BATCH_SIZE,batch_idx,dist)
+        print(f"\n=== Generating Batch {batch_idx + 1}/{N_BATCHES} ===")
+        n_clusters = random.randint(2, 10)
+        generate_datasets(BATCH_SIZE,batch_idx,dist,n_clusters)
     dist='exp'
     for batch_idx in range(N_BATCHES):
-            print(f"\n=== Generating Batch {batch_idx + 1}/{N_BATCHES} ===")
-            generate_datasets(BATCH_SIZE,batch_idx,dist)
+        print(f"\n=== Generating Batch {batch_idx + 1}/{N_BATCHES} ===")
+        n_clusters = random.randint(2, 10)
+        generate_datasets(BATCH_SIZE,batch_idx,dist,n_clusters)
     dist='student'
     for batch_idx in range(N_BATCHES):
-            print(f"\n=== Generating Batch {batch_idx + 1}/{N_BATCHES} ===")
-            generate_datasets(BATCH_SIZE,batch_idx,dist)
+        print(f"\n=== Generating Batch {batch_idx + 1}/{N_BATCHES} ===")
+        n_clusters = random.randint(2, 10)
+        generate_datasets(BATCH_SIZE,batch_idx,dist,n_clusters)
             
             
             

@@ -284,8 +284,8 @@ def get_route_distance(route, distance_matrix):
     distance += distance_matrix[last_node][0]
     return distance
 
-def multiprocess(func, tasks, cpus=None):
-    if cpus == 1 or len(tasks) == 1:
+def multiprocess(func, tasks, cpus=None,force_single=False):
+    if force_single or cpus == 1 or len(tasks) == 1:
         return [func(t) for t in tasks]
     with Pool(cpus or os.cpu_count()) as pool:
         return list(pool.imap(func, tasks))
@@ -916,7 +916,7 @@ def densityQuery(xys):
                                 for neighbors in neighborhoods])
         p += n_neighbors
     p /= len(xys)
-    print(np.max(p))
+    #print(np.max(p))
     return p
 
 def projection_overlap(data, centers):
@@ -949,3 +949,170 @@ def structuralEntorpy(xys):
     data_entory = all_entory(len(xys), tree_depth, np.sum(adj_mat), tree)
     data_ent = np.sum(data_entory, axis=1).reshape(-1)
     return data_ent
+
+def raidusQuery_before(xys,label):
+    # 计算每个点所属类别的半径（即该类别内所有点到该类别中心的最大距离）
+    xys = np.asarray(xys)
+    label = np.asarray(label)
+    radii = np.zeros(len(xys))
+    for l in np.unique(label):
+        idx = np.where(label == l)[0]
+        cluster_points = xys[idx]
+        center = cluster_points.mean(axis=0)
+        dists = np.linalg.norm(cluster_points - center, axis=1)
+        radius = dists.max()
+        radii[idx] = radius
+    print(xys[:5])
+    print(radii[:5])
+    return radii
+
+def raidusQuery(xys,label):
+    # 计算每个点所属类别的半径（即该类别内所有点到该类别中心的最大距离）
+    xys = np.asarray(xys)
+    label = np.asarray(label)
+    radii = np.zeros(len(xys))
+    for l in np.unique(label):
+        # indices of points in this cluster
+        idx = np.where(label == l)[0]
+        cluster_points = xys[idx]
+        # compute cluster centroid
+        center = cluster_points.mean(axis=0)
+        # distances from center to each point
+        dists = np.linalg.norm(cluster_points - center, axis=1)
+        # max distance in cluster
+        max_dist = dists.max()
+        # find the point closest to the centroid to serve as center
+        center_local_idx = np.argmin(dists)
+        # map back to original index
+        center_idx = idx[center_local_idx]
+        radii[center_idx] = max_dist
+    return radii
+
+def compute_cluster_size_density_radius(X, labels, k, n_bins=10, eps=1e-12):
+    """
+    X      : (N, d) 整个数据集
+    labels : (N,)   每个点的簇标签（假定为 0..k-1）
+    k      : 簇个数
+    n_bins : 密度计算的百分档个数，默认 10 -> 10%, 20%, ..., 100%
+
+    返回:
+        feats: (k, 3) 数组，每一行对应一个簇:
+            feats[c, 0] = 第 c 个簇的点数 n_k
+            feats[c, 1] = 第 c 个簇的密度系数 density_k
+            feats[c, 2] = 第 c 个簇的半径（簇内最远两点距离）
+    """
+    X = np.asarray(X)
+    labels = np.asarray(labels)
+
+    feats = np.zeros((k, 3), dtype=float)
+
+    for c in range(k):
+        idx = np.where(labels == c)[0]
+        cluster_pts = X[idx]          # (n_k, d)
+        n_k = cluster_pts.shape[0]
+
+        # 先写规模（点数）
+        feats[c, 0] = n_k
+
+        # 空簇处理
+        if n_k == 0:
+            feats[c, 1] = 0.0   # 密度
+            feats[c, 2] = 0.0   # 半径
+            continue
+
+        # 单点簇：密度最大，半径为 0
+        if n_k == 1:
+            feats[c, 1] = 1.0   # 所有点重合，非常稠密
+            feats[c, 2] = 0.0   # 只有一个点，直径为 0
+            continue
+
+        # ================== 密度计算（基于中心距离分布） ==================
+        # 簇中心
+        center = cluster_pts.mean(axis=0)
+
+        # 每个点到中心的距离
+        dists_center = np.linalg.norm(cluster_pts - center, axis=1)  # (n_k,)
+        d_max_center = dists_center.max()
+
+        if d_max_center < eps:
+            # 所有点几乎重合，非常稠密
+            density = 1.0
+        else:
+            # 归一化到 [0, 1]
+            r = dists_center / d_max_center
+
+            # 计算 10%, 20%, ..., 100% 阶段的比例 F_m
+            F = np.zeros(n_bins)
+            for m in range(1, n_bins + 1):
+                t = m / n_bins      # 0.1, 0.2, ..., 1.0
+                F[m - 1] = np.mean(r <= t)
+
+            # 加权平均作为密度系数：越靠中心权重越大
+            weights = np.arange(n_bins, 0, -1)  # [n_bins, ..., 1]
+            density = np.sum(weights * F) / np.sum(weights)
+
+        feats[c, 1] = float(density)
+
+        # ================== 半径计算（簇内最远两点距离） ==================
+        # 构造簇内距离矩阵，取最大值
+        dmat = np.linalg.norm(
+            cluster_pts[:, None, :] - cluster_pts[None, :, :],
+            axis=2
+        )  # (n_k, n_k)
+        radius = np.max(dmat)
+
+        feats[c, 2] = float(radius)
+
+    return feats
+def radius_zone_feature(xys, labels, k, n_bins=10, eps=1e-12):
+    """
+    xys    : (N, d) 数据点
+    labels : (N,)   每个点的簇标签，取值 0..k-1
+    k      : 簇个数
+    n_bins : 区位个数，默认 10
+    返回：
+      zones : (N,) 一维向量，每个点的区位编号 1..n_bins
+    """
+    xys = np.asarray(xys)
+    labels = np.asarray(labels)
+    N, d = xys.shape
+
+    # 1. 计算每个簇的中心 (简单用均值)
+    centers = np.zeros((k, d), dtype=xys.dtype)
+    for c in range(k):
+        mask = (labels == c)
+        if not np.any(mask):
+            # 该簇没有点就跳过
+            continue
+        centers[c] = xys[mask].mean(axis=0)
+
+    # 2. 计算每个点到自己簇中心的距离 r_i
+    dists = np.linalg.norm(xys - centers[labels], axis=1)  # (N,)
+
+    # 3. 计算每个簇内的最大半径 R_max
+    R_max = np.zeros(k, dtype=xys.dtype)
+    for c in range(k):
+        mask = (labels == c)
+        if not np.any(mask):
+            continue
+        R_max[c] = dists[mask].max()
+
+    # 避免除零
+    R_max[R_max < eps] = eps
+
+    # 4. 归一化半径 t_i = r_i / R_max[label_i]
+    t_norm = dists / R_max[labels]  # (N,)
+
+    # 保证在 [0,1]
+    t_norm = np.clip(t_norm, 0.0, 1.0)
+
+    # 5. 映射到 n_bins 个区位：0..n_bins-1
+    #   t in (0,1] -> bin 0..n_bins-1
+    bins = (t_norm * n_bins).astype(int)
+    # t=1.0 时会变成 n_bins，需要往回拉一格
+    bins[bins == n_bins] = n_bins - 1
+
+    # 如果你希望区位编号从 1 开始（1..10），可加 1
+    zones = bins + 1
+
+    return zones
