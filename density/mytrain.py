@@ -9,30 +9,40 @@ from sklearn.utils.class_weight import compute_class_weight
 import torch
 from torch.autograd import Variable
 import pickle
-
+#修改参数 如果接着训练，只需要修改epoch和load_pt即可
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--file_path', default='mydata/train', help='')
-parser.add_argument('--eval_file_path', default='mydata/val', help='')
-
-parser.add_argument('--n_epoch', type=int, default=25, help='')
-
+parser.add_argument('--file_path', default='mydata2/train', help='')
+parser.add_argument('--eval_file_path', default='mydata2/val', help='')
 parser.add_argument('--eval_interval', type=int, default=1, help='')
-parser.add_argument('--eval_batch_size', type=int, default=20, help='')
 parser.add_argument('--n_hidden', type=int, default=128, help='')
 parser.add_argument('--n_gcn_layers', type=int, default=30, help='')
 parser.add_argument('--n_mlp_layers', type=int, default=3, help='')
 parser.add_argument('--learning_rate', type=float, default=0.0001, help='')
 parser.add_argument('--save_interval', type=int, default=1, help='')
-parser.add_argument('--save_dir', type=str, default="C:/Users/10998/Desktop/N-clusters/density/saved_density/exp1/", help='')
 
-parser.add_argument('--load_pt', type=str, default="C:/Users/10998/Desktop/N-clusters/density/saved_density/exp1/15.pt", help='')
+
+parser.add_argument('--n_edges', type=int, default=40, help='')
+parser.add_argument('--n_nodes', type=int, default=1000, help='')
+parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training') 
+parser.add_argument('--eval_batch_size', type=int, default=16, help='')
+# 建议设为 16 或 32，取决于你的显存 (1000个节点占显存较大)
+
+#训练轮数（总的轮数）
+parser.add_argument('--n_epoch', type=int, default=20, help='')
+parser.add_argument('--save_dir', type=str, default="saved/radius_centralpoint_uniform/", help='')
+parser.add_argument('--load_pt', type=str, default="saved/radius_centralpoint_uniform/5.pt", help='')
+#parser.add_argument('--load_pt', type=str, default="", help='')
+
+
+
+
+#换模型记得修改dataloder
 args = parser.parse_args()
 
-n_edges = 20
+n_edges =args.n_edges
 net = SparseGCNModel()
 net.cuda()
-dataLoader = DataLoader(file_path=args.file_path,
-                        batch_size=None)
+dataLoader = DataLoader(file_path=args.file_path,batch_size=args.batch_size)
 
 edge_cw = None
 optimizer = torch.optim.Adam(net.parameters(), lr=args.learning_rate)
@@ -51,9 +61,9 @@ while epoch < args.n_epoch:
     rank_train = [[] for _ in range(20)]
     Norms_train = [[] for _ in range(20)]
     net.train()
-    dataset_index = epoch % 10
-    dataLoader.load_data(dataset_index)
-    for batch in trange(5000):
+    #dataset_index = epoch % 10
+    data_len=dataLoader.load_data(n_nodes=args.n_nodes)
+    for batch in trange(data_len // args.batch_size):
         node_feat, edge_feat, label, edge_index, inverse_edge_index = dataLoader.next_batch()
         batch_size = node_feat.shape[0]
         node_feat = Variable(torch.FloatTensor(node_feat).type(torch.cuda.FloatTensor), requires_grad=False)
@@ -83,11 +93,12 @@ while epoch < args.n_epoch:
 
     if epoch % args.eval_interval == 0:
         eval_results = []
-        for n_node in [201]:
-            dataset = pickle.load(open(args.eval_file_path + "/" + str(n_node) + ".pkl", "rb"))
+        for n_node in [args.n_nodes]:
+            dataset = pickle.load(open(args.eval_file_path + "/"  + str(n_node) + ".pkl", "rb"))
+            data_len = dataset["node_feat"].shape[0]
             dataset_rank = []
             dataset_norms = []
-            for eval_batch in trange(1000 // args.eval_batch_size):
+            for eval_batch in trange(data_len // args.eval_batch_size):
                 node_feat = dataset["node_feat"][eval_batch * args.eval_batch_size:(eval_batch + 1) * args.eval_batch_size]
                 edge_feat = dataset["edge_feat"][eval_batch * args.eval_batch_size:(eval_batch + 1) * args.eval_batch_size]
                 edge_index = dataset["edge_index"][eval_batch * args.eval_batch_size:(eval_batch + 1) * args.eval_batch_size]
@@ -105,7 +116,7 @@ while epoch < args.n_epoch:
 
                     y_edges = y_edges.detach().cpu().numpy()
                     label = label.cpu().numpy()
-        print("eval: n = 100 | {}".format(loss_nodes))     
+        print("eval: n = {} | {}".format(args.n_nodes,loss_nodes))     
         # print ("n=100 %.3f %d, n=200 %.3f %d, n=500 %.3f %d" % (tuple(eval_results)))
 
     epoch += 1
