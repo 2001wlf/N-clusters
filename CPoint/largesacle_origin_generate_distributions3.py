@@ -1,6 +1,8 @@
-from util3 import densityQuery,fringeScore,structuralEntorpy,raidusQuery,multiprocess,compute_cluster_size_density_radius
-from util3 import radius_zone_feature
+from util3 import multiprocess
+from util3 import kmeans_penalty_feature
 import gc
+from MLSP import MLSP_cluster
+from LS_PLUS import LSpp_cluster
 import pickle
 import numpy as np
 from time import time
@@ -128,8 +130,10 @@ def generate_problem(args, init=None):
     #SE = np.multiply(SE, 10)
     density=[]
     fringe=[]
-    SE = structuralEntorpy(xys)
-    SE = np.multiply(SE, 10)
+    SE=[]
+    #centers, labels, cost=MLSP_cluster(xys,args.n_clusters)
+    centers, labels, cost=LSpp_cluster(xys,args.n_clusters)
+    density = kmeans_penalty_feature(xys, centers, labels)
     return xys, density, fringe, SE
 
 def generate_i(gen_args):

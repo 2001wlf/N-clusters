@@ -13,7 +13,7 @@ from DPC_origin import DPC
 import numpy as np
 from sklearn.metrics import silhouette_score
 from generate_distributions import generate_datasets
-from mytest import entropy_model
+from mytest import density_model
 from sklearn.metrics import normalized_mutual_info_score
 from sklearn.metrics import davies_bouldin_score
 from sklearn.datasets import load_wine
@@ -84,7 +84,7 @@ def DPC_model(dataset,data,label):
     k=len(np.unique(label))
 
     generate_datasets(data,label)
-    entropy_model(n_node)
+    density_model(n_node)
     dataset_name=dataset
     dataset = pickle.load(open( f"mydata/val/{n_node}.pkl", "rb"))
     eval_batch_size=1
@@ -149,32 +149,32 @@ def DPC_model(dataset,data,label):
 data_dir = "C:/Users/10998/Desktop/N-clusters/density/mydata/transformed_dataset_csv"  # 根据你的实际路径修改
 datasets = []
 if __name__ == '__main__':
-    #iris=load_iris()
-    #data = iris.data[:, :2]  # 只取前两列特征
-    #label = iris.target
-    #DPC_model("iris", data, label)
-    #iris=load_wine()
-    #data = iris.data[:, :2]  # 只取前两列特征
-    #label = iris.target
-    #DPC_model("wine", data, label)
-    data,label=generate_smile(5000)
-    DPC_model("smile",data,label)
+    iris=load_iris()
+    data = iris.data[:, :2]  # 只取前两列特征
+    label = iris.target
+    DPC_model("iris", data, label)
+    iris=load_wine()
+    data = iris.data[:, :2]  # 只取前两列特征
+    label = iris.target
+    DPC_model("wine", data, label)
+    #data,label=generate_smile(5000)
+    #DPC_model("smile",data,label)
     
-    data,label=generate_parabola(5000);
-    DPC_model("parabola",data,label)
+    #data,label=generate_parabola(5000);
+    #DPC_model("parabola",data,label)
 
-    data,label=make_spiral(5000)
-    DPC_model("spiral",data,label)
+    #data,label=make_spiral(5000)
+    #DPC_model("spiral",data,label)
 
-    data,label=make_nested_squares(5000)
-    DPC_model("nested_squares",data,label)
+    #data,label=make_nested_squares(5000)
+    #DPC_model("nested_squares",data,label)
     #给出数据集
-    #for file_name in os.listdir(data_dir):
-     #   if file_name.endswith(".txt"):
-      #      file_path = os.path.join(data_dir, file_name)
-       #     df = pd.read_csv(file_path, header=None, sep=r'\s+|,', engine='python')
-        #    data = df.iloc[:, :-1].to_numpy()  # 所有特征列
-         #   if data.shape[1]>2:
-          #      data=data[:,:2]
-           # label = df.iloc[:, -1].to_numpy()  # 最后一列是标签
-            #DPC_model(file_name,data,label)
+    for file_name in os.listdir(data_dir):
+        if file_name.endswith(".txt"):
+            file_path = os.path.join(data_dir, file_name)
+            df = pd.read_csv(file_path, header=None, sep=r'\s+|,', engine='python')
+            data = df.iloc[:, :-1].to_numpy()  # 所有特征列
+            if data.shape[1]>2:
+                data=data[:,:2]
+            label = df.iloc[:, -1].to_numpy()  # 最后一列是标签
+            DPC_model(file_name,data,label)

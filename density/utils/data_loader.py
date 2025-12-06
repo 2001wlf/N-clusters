@@ -18,7 +18,7 @@ class DataLoader(object):
         self.dataset = []
         loading_datasets = []
         loading_datasets.append(n_nodes)
-        with open(self.file_path + "/" + str(n_nodes) + ".pkl", "rb") as f:
+        with open(self.file_path + "/" +'train_merged_' + str(n_nodes) + ".pkl", "rb") as f:
             self.dataset.append(pickle.load(f))
         print ("load datasets wtih nodes " + ", ".join([str(_) for _ in loading_datasets]))
         self.batch_index = 0

@@ -11,8 +11,8 @@ from torch.autograd import Variable
 import pickle
 #修改参数 如果接着训练，只需要修改epoch和load_pt即可
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--file_path', default='mydata2/train', help='')
-parser.add_argument('--eval_file_path', default='mydata2/val', help='')
+parser.add_argument('--file_path', default='mydata/train', help='')
+parser.add_argument('--eval_file_path', default='mydata/val', help='')
 parser.add_argument('--eval_interval', type=int, default=1, help='')
 parser.add_argument('--n_hidden', type=int, default=128, help='')
 parser.add_argument('--n_gcn_layers', type=int, default=30, help='')
@@ -21,17 +21,17 @@ parser.add_argument('--learning_rate', type=float, default=0.0001, help='')
 parser.add_argument('--save_interval', type=int, default=1, help='')
 
 
-parser.add_argument('--n_edges', type=int, default=40, help='')
-parser.add_argument('--n_nodes', type=int, default=1000, help='')
-parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training') 
-parser.add_argument('--eval_batch_size', type=int, default=16, help='')
+parser.add_argument('--n_edges', type=int, default=20, help='')
+parser.add_argument('--n_nodes', type=int, default=100, help='')
+parser.add_argument('--batch_size', type=int, default=40, help='Batch size for training') 
+parser.add_argument('--eval_batch_size', type=int, default=40, help='')
 # 建议设为 16 或 32，取决于你的显存 (1000个节点占显存较大)
 
 #训练轮数（总的轮数）
-parser.add_argument('--n_epoch', type=int, default=20, help='')
-parser.add_argument('--save_dir', type=str, default="saved/radius_centralpoint_uniform/", help='')
-parser.add_argument('--load_pt', type=str, default="saved/radius_centralpoint_uniform/5.pt", help='')
-#parser.add_argument('--load_pt', type=str, default="", help='')
+parser.add_argument('--n_epoch', type=int, default=10, help='')
+parser.add_argument('--save_dir', type=str, default="saved_density/test/", help='')
+#parser.add_argument('--load_pt', type=str, default="saved_density/test/5.pt", help='')
+parser.add_argument('--load_pt', type=str, default="", help='')
 
 
 
@@ -94,7 +94,7 @@ while epoch < args.n_epoch:
     if epoch % args.eval_interval == 0:
         eval_results = []
         for n_node in [args.n_nodes]:
-            dataset = pickle.load(open(args.eval_file_path + "/"  + str(n_node) + ".pkl", "rb"))
+            dataset = pickle.load(open(args.eval_file_path + "/"  +'val_merged_' + str(n_node) + ".pkl", "rb"))
             data_len = dataset["node_feat"].shape[0]
             dataset_rank = []
             dataset_norms = []

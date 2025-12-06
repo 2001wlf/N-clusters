@@ -1,16 +1,13 @@
-from util3 import densityQuery,fringeScore,structuralEntorpy,raidusQuery,multiprocess,compute_cluster_size_density_radius
-from util3 import radius_zone_feature
+from util import densityQuery,multiprocess
 import gc
 import pickle
 import numpy as np
 from time import time
 from pathlib import Path
 import argparse
-from sklearn.cluster import KMeans
 import warnings
 from sklearn.preprocessing import MinMaxScaler
 import random
-from mydata2.generate_dataset import generate_smile
 warnings.filterwarnings("ignore",category=FutureWarning)
 
 def clustered_xys(args, center_depot=False, max_xy=1):
@@ -128,8 +125,8 @@ def generate_problem(args, init=None):
     #SE = np.multiply(SE, 10)
     density=[]
     fringe=[]
-    SE = structuralEntorpy(xys)
-    SE = np.multiply(SE, 10)
+    SE=[]
+    density = densityQuery(xys)
     return xys, density, fringe, SE
 
 def generate_i(gen_args):
@@ -265,8 +262,8 @@ def generate_datasets(n_instances=500,batch_idx=0,dist="uniform",n_clusters=10,p
     del x, dist, edge_feat, edge_index, inverse_edge_index, feat, results
     gc.collect()
 if __name__ == "__main__":
-    #partition='val'
-    partition='train'
+    partition='val'
+    #partition='train'
     
     # --- 修改开始：设置分批参数 ---
     if partition=='train':
