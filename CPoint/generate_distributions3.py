@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 from time import time
 from pathlib import Path
+from LS_PLUS import LSpp_cluster
 import argparse
 from sklearn.cluster import KMeans
 import warnings
@@ -70,7 +71,9 @@ def my_generate_problem(xys,k):
     #SE = np.multiply(SE, 10)
     kmeans= KMeans(init='k-means++',n_init='auto',n_clusters=k).fit(xys)
     #Radius=raidusQuery(xys,kmeans.labels_)
-    Cpoints=kmeans_penalty_feature(xys,kmeans.cluster_centers_, kmeans.labels_)  # (N,1)
+    Cpoints=kmeans_penalty_feature(xys,kmeans.cluster_centers_, kmeans.labels_) # (N,1)
+    #centers, labels, cost=LSpp_cluster(xys,k)
+    #Cpoints = kmeans_penalty_feature(xys, centers, labels)
     return xys,Cpoints
 def generate_problem(args, init=None):
     if init:

@@ -15,7 +15,7 @@ def density_model(my_node):
     parser.add_argument('--n_edges', type=int, default=20, help='')    #可能需要设置！！！！
     parser.add_argument('--eval_batch_size', type=int, default=1, help='')
     parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/density/mydata/val', help='')
-    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/density/saved_density/test/10.pt', help='')
+    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/density/saved_density/exp1/25.pt', help='')
     args = parser.parse_args()
     edge_cw = None
     n_edges = args.n_edges

@@ -84,7 +84,7 @@ def radius_model(my_node):
     parser.add_argument('--eval_interval', type=int, default=1, help='')
     parser.add_argument('--eval_batch_size', type=int, default=1, help='')
     parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/range/mydata2/val', help='')
-    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/range/saved/radius_centralpoint_uniform/5.pt', help='')
+    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/range/saved/radius_centralpoint_uniform/10.pt', help='')
     args = parser.parse_args()
     edge_cw = None
     n_edges = 20
@@ -264,7 +264,7 @@ def read_data(true_data,true_label,dataset_name):
 
     n_node=len(true_data)
     
-    n_node=k
+    #n_node=k
     
     radius_model(n_node)
     
@@ -372,11 +372,11 @@ if __name__ == '__main__':
           #  f"model k: {model_k_list[i]}"
       #  )
     # 可选的半径“汇总打印”（如果你只想要 read_data 里那两行，就把下面这段删掉）
-    for i in range(len(dataset_name_list)):
+    """for i in range(len(dataset_name_list)):
         # 第1行：KMeans 的 k 个半径
         print(f"{dataset_name_list[i]} {fmt_list(origin_radius_list[i])}")
         # 第2行：模型预测 top-k 半径（如果没预测，就打印 []）
         if i < len(model_radius_list):
             print(fmt_list(model_radius_list[i]))
         else:
-            print("[]")
+            print("[]")"""

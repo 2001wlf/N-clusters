@@ -28,10 +28,10 @@ parser.add_argument('--eval_batch_size', type=int, default=40, help='')
 # 建议设为 16 或 32，取决于你的显存 (1000个节点占显存较大)
 
 #训练轮数（总的轮数）
-parser.add_argument('--n_epoch', type=int, default=10, help='')
+parser.add_argument('--n_epoch', type=int, default=30, help='')
 parser.add_argument('--save_dir', type=str, default="saved_density/test/", help='')
-#parser.add_argument('--load_pt', type=str, default="saved_density/test/5.pt", help='')
-parser.add_argument('--load_pt', type=str, default="", help='')
+parser.add_argument('--load_pt', type=str, default="saved_density/test/10.pt", help='')
+#parser.add_argument('--load_pt', type=str, default="", help='')
 
 
 

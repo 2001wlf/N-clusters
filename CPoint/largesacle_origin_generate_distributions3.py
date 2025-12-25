@@ -1,7 +1,6 @@
 from util3 import multiprocess
 from util3 import kmeans_penalty_feature
 import gc
-from MLSP import MLSP_cluster
 from LS_PLUS import LSpp_cluster
 import pickle
 import numpy as np
@@ -131,9 +130,11 @@ def generate_problem(args, init=None):
     density=[]
     fringe=[]
     SE=[]
+    kmeans= KMeans(init='k-means++',n_init='auto', n_clusters=args.n_clusters).fit(xys)
     #centers, labels, cost=MLSP_cluster(xys,args.n_clusters)
-    centers, labels, cost=LSpp_cluster(xys,args.n_clusters)
-    density = kmeans_penalty_feature(xys, centers, labels)
+    #centers, labels, cost=LSpp_cluster(xys,args.n_clusters)
+    #density = kmeans_penalty_feature(xys, centers, labels)
+    density=kmeans_penalty_feature(xys,kmeans.cluster_centers_, kmeans.labels_)
     return xys, density, fringe, SE
 
 def generate_i(gen_args):
@@ -186,7 +187,7 @@ def generate_datasets(n_instances=500,batch_idx=0,dist="uniform",n_clusters=10,p
 
     
     
-    args.save_dir="mydata"
+    args.save_dir="mydata2"
     #args.save_dir.mkdir(parents=True, exist_ok=True)
     #现在是测试用
     #args.n_instances=1;
@@ -269,8 +270,8 @@ def generate_datasets(n_instances=500,batch_idx=0,dist="uniform",n_clusters=10,p
     del x, dist, edge_feat, edge_index, inverse_edge_index, feat, results
     gc.collect()
 if __name__ == "__main__":
-    #partition='val'
-    partition='train'
+    partition='val'
+    #partition='train'
     
     # --- 修改开始：设置分批参数 ---
     if partition=='train':

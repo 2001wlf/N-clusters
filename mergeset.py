@@ -73,7 +73,7 @@ def merge_dict_structure_files(input_folder, output_path):
 
 # ================= 运行配置 =================
 if __name__ == "__main__":
-    INPUT = r'C:/Users/10998/Desktop/N-clusters/density/mydata/val'              # 您的输入文件夹
-    OUTPUT = r'C:/Users/10998/Desktop/N-clusters/density/mydata/val/val_merged.pkl'  # 输出文件
+    INPUT = r'CPoint/mydata2/mydata2/val'              # 您的输入文件夹
+    OUTPUT = r'CPoint/mydata2/val/val_mlsp_100.pkl'  # 输出文件
     
     merge_dict_structure_files(INPUT, OUTPUT)

@@ -147,9 +147,9 @@ def main(dataset,data,label):
         ne_list=[3,4,5,6,7,8,9,10]
         tree_depth_list=[2,3,4]
         gap_range=[0.1,0.2,0.3,0.4,0.5]
-        ne_list=[3]
-        tree_depth_list=[2]
-        gap_range=[0.1]
+        ne_list=[5]
+        tree_depth_list=[3]
+        gap_range=[0.2]
         print("Data shape is",data.shape)
         start_time = time.time()
         for p in range(len(ne_list)):
@@ -162,6 +162,19 @@ def main(dataset,data,label):
                     #print("gap is ",l)
                     gap = gap_range[l]
                     s_time = time.time()
+                    """adj_mat = bulit_knn_adjm(data, ne, gap * math.sqrt(opt / len(data)))
+                    assert np.all(adj_mat == adj_mat.T)  # undirected
+                    
+
+                    tree = trans_to_tree(adj_mat, tree_depth)
+                    tree = update_node(tree)
+                    #lambda_ = compute_lambda_dynamic(tree)
+                    #lambda_ = search_best_lambda(tree,reg_type=reg_type)
+                    #lambda_ = adjust_lambda_by_kmeans(data, label)
+                    #lambda_=0
+                    #print("lambda_",lambda_)
+                    data_entory = all_entory(len(data), tree_depth, np.sum(adj_mat), tree)"""
+                    
                     
                     data_entory=entropy_results
                     #data_entory.reshape(-1,1)

@@ -81,12 +81,13 @@ def compute_accuracy_filtered(y_true, y_pred, noise_label=-1):
 def Cpoints_model(my_node):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--eval_interval', type=int, default=1, help='')
+    parser.add_argument('--n_edges', type=int, default=20, help='')    #可能需要设置！！！！
     parser.add_argument('--eval_batch_size', type=int, default=1, help='')
     parser.add_argument('--eval_file_path', default='C:/Users/10998/Desktop/N-clusters/CPoint/mydata2/val', help='')
-    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/CPoint/saved/radius_centralpoint_uniform/5.pt', help='')
+    parser.add_argument('--model_path', type=str, default='C:/Users/10998/Desktop/N-clusters/CPoint/saved/mlsp/10.pt', help='')
     args = parser.parse_args()
     edge_cw = None
-    n_edges = 20
+    n_edges = args.n_edges
     net = SparseGCNModel()
     net.cuda()
     saved = torch.load(args.model_path)
@@ -122,7 +123,7 @@ def Cpoints_model(my_node):
                 label = label.cpu().numpy()
                 np.savetxt("cmps/{}/{}_label.txt".format(n_node,eval_batch),label[0],fmt='%.4f')
                 np.savetxt("cmps/{}/{}_pred.txt".format(n_node,eval_batch),list(y_nodes[0].flatten().cpu()),fmt='%.4f')
-    print("eval: n = 100 | {}".format(loss_nodes))
+    print("eval: n = {} | {}".format(my_node,loss_nodes))
 #entropy_model(300)
 #test
 def make_uniform(start, end, length, np_nums):
@@ -333,6 +334,7 @@ if __name__ == '__main__':
     model_acc_list.append(maximun_acc)
     init_acc_list.append(init_acc)
     dataset_name_list.append(dataset_name)    
+    print("breast_cancer :",breast_cancer.data.shape)
 
     init_acc, maximun_acc, dataset_name=read_data(wine.data, wine.target, "wine")
     model_acc_list.append(maximun_acc)

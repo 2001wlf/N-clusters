@@ -113,8 +113,8 @@ def generate_datasets(x,label):
 
     partition = args.partition
     ref_path = ref_problems = None
-    #args.n_nodes=x.shape[0]
-    args.n_nodes=k
+    args.n_nodes=x.shape[0]
+
     save_path = "{}/{}/{}.pkl".format(args.save_dir,args.partition,args.n_nodes)
     n_nodes=args.n_nodes
     #n_nodes = args.n_nodes + 1
